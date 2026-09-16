@@ -3,18 +3,41 @@ if (!builderConfig || typeof builderConfig !== "object") {
   throw new Error("Builder configuration was not loaded.");
 }
 
-const builderTheme = builderConfig.theme || {};
-const builderApi = builderConfig.api || {};
-const builderConstraints = builderConfig.constraints || {};
-const builderDefaults = builderConfig.defaults || {};
-const builderMessages = builderConfig.messages || {};
-const builderCopy = builderConfig.copy || {};
+const builderHeadings = builderConfig.headings || {};
+const builderTaglines = builderConfig.taglines || {};
+const builderAbout = builderConfig.about || {};
+const builderColors = builderConfig.colors || {};
+const primaryColor = builderColors.primary || "#2563eb";
+const buttonColor = builderColors.button || "#123b72";
+const completionColor = builderColors.completion || "#2563eb";
 
-Object.entries(builderTheme.cssVariables || {}).forEach(([name, value]) => {
-  document.documentElement.style.setProperty(name, value);
-});
+const configuredText = (path) => {
+  const [group, key] = path.split(".");
+  if (key) return builderConfig[group]?.[key];
+  return (
+    builderHeadings[path] ||
+    builderTaglines[path] ||
+    builderAbout[path]
+  );
+};
+
+document.documentElement.style.setProperty("--accent", primaryColor);
+document.documentElement.style.setProperty("--success", primaryColor);
+document.documentElement.style.setProperty("--navy", buttonColor);
+document.documentElement.style.setProperty(
+  "--completion-start",
+  completionColor,
+);
+document.documentElement.style.setProperty(
+  "--completion-end",
+  completionColor,
+);
+document.documentElement.style.setProperty(
+  "--completion-link",
+  completionColor,
+);
 document.querySelectorAll("[data-config-text]").forEach((element) => {
-  const value = builderCopy[element.dataset.configText];
+  const value = configuredText(element.dataset.configText);
   if (typeof value === "string") element.textContent = value;
 });
 
@@ -83,24 +106,21 @@ const finalGeneration = document.querySelector("#final-generation");
 const contactEmailField = document.querySelector("#contact-email");
 const modifyEmailMessage = document.querySelector("#modify-email-message");
 const dataDeliveryStatus = document.querySelector("#data-delivery-status");
-const maxImageSizeMb = Number(builderConstraints.maxImageSizeMb);
+const maxImageSizeMb = 5;
 const maxImageSize = maxImageSizeMb * 1024 * 1024;
-const maxGalleryImages = Number(builderConstraints.maxGalleryImages);
+const maxGalleryImages = 8;
 const expectedServerVersion = Number(builderConfig.version);
-const web3FormsEndpoint = builderApi.web3FormsEndpoint;
-const websiteGenerationEndpoint = builderApi.websiteGenerationEndpoint;
-const builderContactEndpoint = builderApi.builderContactEndpoint;
-const supportedImageTypes = new Set(
-  Object.keys(builderConstraints.supportedImages || {}),
-);
-const supportedImageExtensions =
-  builderConstraints.supportedImageFileExtensions || [];
-const supportedImagePattern = new RegExp(
-  `(${supportedImageExtensions
-    .map((extension) => extension.replace(".", "\\."))
-    .join("|")})$`,
-  "i",
-);
+const web3FormsEndpoint = "https://api.web3forms.com/submit";
+const websiteGenerationEndpoint =
+  "https://test.logeshgopal0712.workers.dev/api/generate";
+const builderContactEndpoint = "";
+const supportedImageTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+const supportedImagePattern = /\.(png|jpe?g|webp|gif)$/i;
 const isOpenedDirectly = window.location.protocol === "file:";
 const isLocalBuilder = ["127.0.0.1", "localhost"].includes(
   window.location.hostname,
@@ -147,47 +167,21 @@ let currentWizardStep = 0;
 let wizardInitialized = false;
 
 function applyBuilderConfiguration() {
-  const wizardConfiguration = builderConfig.wizard?.steps || [];
+  const headingOrder = [
+    "company",
+    "offerings",
+    "gallery",
+    "contact",
+    "inquiriesReviews",
+    "follow",
+    "appointment",
+    "template",
+    "preview",
+  ];
   wizardSteps.forEach((step, index) => {
-    const configuration = wizardConfiguration[index];
-    if (!configuration) return;
-    step.dataset.stepTitle = configuration.shortTitle;
-    const heading = step.querySelector(
-      ".section-heading h2, .preview-heading h2",
-    );
-    if (heading && configuration.heading) {
-      heading.textContent = configuration.heading;
-    }
+    const heading = builderHeadings[headingOrder[index]];
+    if (heading) step.dataset.stepTitle = heading;
   });
-
-  const companyName = form.elements.namedItem("companyName");
-  const tagline = form.elements.namedItem("tagline");
-  const description = form.elements.namedItem("description");
-  const about = form.elements.namedItem("about");
-  companyName.maxLength = Number(builderConstraints.companyNameMaxLength);
-  tagline.maxLength = Number(builderConstraints.taglineMaxLength);
-  description.maxLength = Number(builderConstraints.descriptionMaxLength);
-  about.maxLength = Number(builderConstraints.aboutMaxLength);
-  yearStartedField.min = String(builderConstraints.yearStartedMin);
-  pageColorOpacityField.min = String(builderConstraints.pageOpacityMin);
-  pageColorOpacityField.max = String(builderConstraints.pageOpacityMax);
-
-  document.querySelectorAll('input[type="file"][accept]').forEach((input) => {
-    input.accept = supportedImageExtensions.join(",");
-  });
-
-  brandColorField.value = builderDefaults.primaryColor;
-  brandColorField.defaultValue = builderDefaults.primaryColor;
-  secondaryColorField.value = builderDefaults.secondaryColor;
-  secondaryColorField.defaultValue = builderDefaults.secondaryColor;
-  pageColorField.value = builderDefaults.pageColor;
-  pageColorField.defaultValue = builderDefaults.pageColor;
-  pageColorOpacityField.value = String(builderDefaults.pageColorOpacity);
-  pageColorOpacityField.defaultValue = String(builderDefaults.pageColorOpacity);
-  const defaultTemplate = form.querySelector(
-    `input[name="template"][value="${builderDefaults.template}"]`,
-  );
-  if (defaultTemplate) defaultTemplate.checked = true;
 }
 
 applyBuilderConfiguration();
@@ -458,8 +452,8 @@ function setWebsiteOperation(operation, email = "") {
   modifyEmailMessage.hidden = operation !== "modify";
   createWebsiteButton.textContent =
     operation === "modify"
-      ? builderMessages.modifyAction
-      : builderMessages.createAction;
+      ? "Modify website"
+      : "Create website";
 }
 
 function showPublishedWebsite(previewUrl, payload) {
@@ -468,14 +462,14 @@ function showPublishedWebsite(previewUrl, payload) {
   dataDeliveryStatus.className = "success";
   createdWebsiteLink.href = previewUrl;
   publishedWebsiteLabel.textContent = wasModified
-    ? builderMessages.modifiedLabel
-    : builderMessages.createdLabel;
+    ? builderTaglines.modifiedLabel
+    : builderTaglines.createdLabel;
   createdWebsiteResult.hidden = false;
 
   startCreateWebsiteButton.disabled = true;
   startCreateWebsiteButton.textContent = wasModified
-    ? builderMessages.modifiedLabel
-    : builderMessages.createdLabel;
+    ? builderTaglines.modifiedLabel
+    : builderTaglines.createdLabel;
   createWebsiteCard.classList.add("website-created");
 
   manageWebsiteTitle.textContent = "Edit website";
@@ -518,8 +512,8 @@ createWebsiteButton.addEventListener("click", async () => {
   const action = websiteOperation === "modify" ? "Modifying" : "Creating";
   setDataDeliveryStatus(
     websiteOperation === "modify"
-      ? builderMessages.modifying
-      : builderMessages.creating,
+      ? "Modifying website..."
+      : "Creating website...",
   );
   try {
     await publishWebsite();
@@ -858,9 +852,7 @@ function readImage(file) {
     if (file.size > maxImageSize) {
       reject(
         new Error(
-          builderMessages.imageTooLarge
-            .replace("{name}", file.name)
-            .replace("{maxMb}", String(maxImageSizeMb)),
+          `${file.name} is larger than ${maxImageSizeMb} MB.`,
         ),
       );
       return;
@@ -973,10 +965,7 @@ galleryInput.addEventListener("change", async () => {
   if (importedGallery.length + files.length > maxGalleryImages) {
     galleryInput.value = "";
     galleryValidationError.textContent =
-      builderMessages.galleryLimit
-        .replace("{max}", String(maxGalleryImages))
-        .replace("{selected}", String(files.length))
-        .replace("{existing}", String(importedGallery.length));
+      `You can add up to ${maxGalleryImages} gallery images. You selected ${files.length}, with ${importedGallery.length} already added.`;
     galleryValidationError.hidden = false;
     return;
   }
@@ -1425,21 +1414,21 @@ function loadWebsiteData(payload, accountEmail = "") {
   setFormValue("tagline", company.tagline);
   setFormValue("description", company.description);
   setFormValue("about", company.about);
-  setFormValue("template", template.templateId || builderDefaults.template);
+  setFormValue("template", template.templateId || "logo-left");
   setFormValue(
     "brandColor",
-    template.primaryColor || builderDefaults.primaryColor,
+    template.primaryColor || "#c79245",
   );
   setFormValue(
     "secondaryColor",
-    template.secondaryColor || builderDefaults.secondaryColor,
+    template.secondaryColor || "#172238",
   );
   setFormValue("usePageColor", template.usePageColor);
-  setFormValue("pageColor", template.pageColor || builderDefaults.pageColor);
+  setFormValue("pageColor", template.pageColor || "#fbfaf7");
   setFormValue("transparentPageColor", template.transparentPageColor);
   setFormValue(
     "pageColorOpacity",
-    template.pageColorOpacity || builderDefaults.pageColorOpacity,
+    template.pageColorOpacity || 70,
   );
   setFormValue("contactAccessKey", contact.accessKey || reviewSettings.accessKey);
   setFormValue("email", accountEmail || contact.email);
@@ -1683,11 +1672,11 @@ async function collectConfiguration() {
     pageColor: pageColorField.value,
     transparentPageColor: transparentPageColorField.checked,
     pageColorOpacity: Number(pageColorOpacityField.value),
-    font: fieldValue("font") || builderDefaults.font,
+    font: fieldValue("font") || "modern",
     about,
     services,
-    servicesHeading: builderDefaults.servicesHeading,
-    servicesLayout: builderDefaults.servicesLayout,
+    servicesHeading: "What we offer",
+    servicesLayout: "horizontal",
     reviews,
     reviewFormEndpoint: web3FormsEndpoint,
     reviewAccessKey: contactAccessKey,

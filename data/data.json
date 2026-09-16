@@ -1,113 +1,45 @@
 {
-  "schemaVersion": 1,
-  "builder": {
-    "version": 105,
-    "theme": {
-      "cssVariables": {
-        "--ink": "#182033",
-        "--muted": "#667085",
-        "--paper": "#ffffff",
-        "--white": "#ffffff",
-        "--navy": "#123b72",
-        "--accent": "#2563eb",
-        "--accent-dark": "#1d4ed8",
-        "--border": "#dededb",
-        "--danger": "#a42d2d",
-        "--success": "#2563eb",
-        "--selected-primary": "#c79245",
-        "--selected-secondary": "#172238",
-        "--selected-page": "#fbfaf7",
-        "--completion-start": "#123b72",
-        "--completion-end": "#2563eb",
-        "--completion-shadow": "rgba(37, 99, 235, 0.24)",
-        "--completion-link": "#1d4ed8",
-        "--completed-card-background": "#f2f7ff",
-        "--completed-card-border": "rgba(37, 99, 235, 0.35)",
-        "--completed-icon-background": "#eaf1ff"
-      }
-    },
-    "api": {
-      "websiteGenerationEndpoint": "https://test.logeshgopal0712.workers.dev/api/generate",
-      "web3FormsEndpoint": "https://api.web3forms.com/submit",
-      "builderContactEndpoint": ""
-    },
-    "constraints": {
-      "maxRequestSizeMb": 75,
-      "maxImageSizeMb": 5,
-      "maxGalleryImages": 8,
-      "maxOfferings": 30,
-      "maxReviews": 12,
-      "companyNameMaxLength": 60,
-      "taglineMaxLength": 180,
-      "descriptionMaxLength": 1000,
-      "aboutMaxLength": 500,
-      "reviewNameMaxLength": 180,
-      "reviewTextMaxLength": 3000,
-      "yearStartedMin": 1800,
-      "pageOpacityMin": 10,
-      "pageOpacityMax": 100,
-      "supportedImages": {
-        "image/png": ".png",
-        "image/jpeg": ".jpg",
-        "image/webp": ".webp",
-        "image/gif": ".gif"
-      },
-      "supportedImageFileExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif"]
-    },
-    "defaults": {
-      "template": "logo-left",
-      "primaryColor": "#c79245",
-      "secondaryColor": "#172238",
-      "pageColor": "#fbfaf7",
-      "pageColorOpacity": 70,
-      "font": "modern",
-      "servicesHeading": "What we offer",
-      "servicesLayout": "horizontal"
-    },
-    "wizard": {
-      "steps": [
-        { "shortTitle": "Company", "heading": "Company details" },
-        { "shortTitle": "Offerings", "heading": "What you offer" },
-        { "shortTitle": "Gallery", "heading": "Gallery" },
-        { "shortTitle": "Contact", "heading": "Contact details" },
-        { "shortTitle": "Inquiries & Reviews", "heading": "Inquiries & Reviews setup" },
-        { "shortTitle": "Follow", "heading": "Follow" },
-        { "shortTitle": "Appointment", "heading": "Appointment" },
-        { "shortTitle": "Template", "heading": "Select a template" },
-        { "shortTitle": "Preview", "heading": "Preview" }
-      ]
-    },
-    "copy": {
-      "headerEyebrow": "Instant site generation",
-      "headerTitle": "Everything your customers need, in one link",
-      "headerDescription": "Fill it in. Live in seconds.",
-      "headerNote": "No signup required. Preview instantly.",
-      "homeEyebrow": "Your website, your way",
-      "homeTitle": "What would you like to do?",
-      "homeDescription": "Create something new, update an existing website, or reach out to us.",
-      "createCardTitle": "Create website",
-      "createCardDescription": "Start fresh and publish your business website in minutes.",
-      "manageCardTitle": "Manage website",
-      "manageCardDescription": "Load your existing website details and continue editing.",
-      "deleteCardTitle": "Delete website",
-      "deleteCardDescription": "Delete an existing website using its account email.",
-      "readyTitle": "Your website is ready!",
-      "deploymentPending": "If it doesn't load right away, wait a bit and refresh — deployment is still finishing up.",
-      "viewWebsite": "View My Website →",
-      "galleryHelp": "Up to 8 gallery images. Maximum 5 MB each.",
-      "previewImageInfo": "Images in this preview may use compressed thumbnails. Your published website uses the original images."
-    },
-    "messages": {
-      "createAction": "Create website",
-      "modifyAction": "Modify website",
-      "creating": "Creating website...",
-      "modifying": "Modifying website...",
-      "createdLabel": "Website created",
-      "modifiedLabel": "Website modified",
-      "invalidResponse": "The server returned an invalid response.",
-      "requestFailed": "The request could not be completed.",
-      "galleryLimit": "You can add up to {max} gallery images. You selected {selected}, with {existing} already added.",
-      "imageTooLarge": "{name} is larger than {maxMb} MB."
-    }
+  "version": 105,
+  "headings": {
+    "header": "Everything your customers need, in one link",
+    "home": "What would you like to do?",
+    "ready": "Your website is ready!",
+    "company": "Company details",
+    "offerings": "What you offer",
+    "gallery": "Gallery",
+    "contact": "Contact details",
+    "inquiriesReviews": "Inquiries & Reviews setup",
+    "follow": "Follow",
+    "appointment": "Appointment",
+    "template": "Select a template",
+    "preview": "Preview"
+  },
+  "taglines": {
+    "headerEyebrow": "Instant site generation",
+    "headerDescription": "Fill it in. Live in seconds.",
+    "headerNote": "No signup required. Preview instantly.",
+    "homeEyebrow": "Your website, your way",
+    "homeDescription": "Create something new, update an existing website, or reach out to us.",
+    "createCardTitle": "Create website",
+    "createCardDescription": "Start fresh and publish your business website in minutes.",
+    "manageCardTitle": "Manage website",
+    "manageCardDescription": "Load your existing website details and continue editing.",
+    "deleteCardTitle": "Delete website",
+    "deleteCardDescription": "Delete an existing website using its account email.",
+    "createdLabel": "Website created",
+    "modifiedLabel": "Website modified",
+    "deploymentPending": "If it doesn't load right away, wait a bit and refresh — deployment is still finishing up.",
+    "viewWebsite": "View My Website →"
+  },
+  "about": {
+    "company": "These details create the header and hero section.",
+    "follow": "Add any social or podcast links that should appear on the website.",
+    "template": "Choose the colors, background, and layout for your website.",
+    "previewImages": "Images in this preview may use compressed thumbnails. Your published website uses the original images."
+  },
+  "colors": {
+    "primary": "#2563eb",
+    "button": "#123b72",
+    "completion": "#2563eb"
   }
 }

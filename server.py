@@ -18,8 +18,19 @@ HOST = "127.0.0.1"
 PORT = 8766
 SITE_ASSET_VERSION = 104
 PROJECT_DIR = Path(__file__).resolve().parent
+BUILDER_VERSION = 105
 MAX_REQUEST_SIZE = 75 * 1024 * 1024
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
+MAX_GALLERY_IMAGES = 8
+MAX_OFFERINGS = 30
+MAX_REVIEWS = 12
+COMPANY_NAME_MAX_LENGTH = 60
+TAGLINE_MAX_LENGTH = 180
+DESCRIPTION_MAX_LENGTH = 1000
+ABOUT_MAX_LENGTH = 500
+YEAR_STARTED_MIN = 1800
+PAGE_OPACITY_MIN = 10
+PAGE_OPACITY_MAX = 100
 ALLOWED_IMAGES = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
@@ -105,8 +116,10 @@ def validate_year(value):
     except (TypeError, ValueError) as error:
         raise ValueError("Year started must be a valid year.") from error
     current_year = datetime.now().year
-    if year < 1800 or year > current_year:
-        raise ValueError(f"Year started must be between 1800 and {current_year}.")
+    if year < YEAR_STARTED_MIN or year > current_year:
+        raise ValueError(
+            f"Year started must be between {YEAR_STARTED_MIN} and {current_year}."
+        )
     return year
 
 
@@ -131,8 +144,10 @@ def validate_percentage(value, field):
         percentage = int(value)
     except (TypeError, ValueError) as error:
         raise ValueError(f"{field} must be a number.") from error
-    if percentage < 10 or percentage > 100:
-        raise ValueError(f"{field} must be between 10 and 100.")
+    if percentage < PAGE_OPACITY_MIN or percentage > PAGE_OPACITY_MAX:
+        raise ValueError(
+            f"{field} must be between {PAGE_OPACITY_MIN} and {PAGE_OPACITY_MAX}."
+        )
     return percentage
 
 
@@ -175,7 +190,7 @@ def split_entries(value, field, limit):
     return entries
 
 
-def parse_reviews(value, limit=12):
+def parse_reviews(value, limit=MAX_REVIEWS):
     if isinstance(value, list):
         if len(value) > limit:
             raise ValueError(f"Reviews supports at most {limit} entries.")
@@ -376,7 +391,7 @@ def build_contact_form(data, allow_unconfigured=False):
       </form>"""
 
 
-def parse_services(value, limit=30):
+def parse_services(value, limit=MAX_OFFERINGS):
     if isinstance(value, list):
         if len(value) > limit:
             raise ValueError(f"Services supports at most {limit} entries.")
@@ -4001,13 +4016,24 @@ def validate_configuration(payload):
 
     data = {
         "companyName": clean_text(
-            payload.get("companyName"), "Company name", True, 60
+            payload.get("companyName"),
+            "Company name",
+            True,
+            COMPANY_NAME_MAX_LENGTH,
         ),
         "template": clean_text(payload.get("template"), "Template", True, 20),
         "yearStarted": validate_year(payload.get("yearStarted")),
-        "tagline": clean_text(payload.get("tagline", ""), "Tagline", False, 180),
+        "tagline": clean_text(
+            payload.get("tagline", ""),
+            "Tagline",
+            False,
+            TAGLINE_MAX_LENGTH,
+        ),
         "description": clean_text(
-            payload.get("description", ""), "Company description", False, 1000
+            payload.get("description", ""),
+            "Company description",
+            False,
+            DESCRIPTION_MAX_LENGTH,
         ),
         "brandColor": validate_color(payload.get("brandColor")),
         "secondaryColor": validate_color(payload.get("secondaryColor")),
@@ -4023,7 +4049,7 @@ def validate_configuration(payload):
             payload.get("about", ""),
             "About content",
             sections["about"],
-            500,
+            ABOUT_MAX_LENGTH,
         ),
         "services": parse_services(payload.get("services", [])),
         "servicesLayout": clean_text(
@@ -4139,8 +4165,10 @@ def validate_configuration(payload):
         else None
     )
 
-    if not isinstance(gallery, list) or len(gallery) > 8:
-        raise ValueError("Gallery must contain no more than 8 images.")
+    if not isinstance(gallery, list) or len(gallery) > MAX_GALLERY_IMAGES:
+        raise ValueError(
+            f"Gallery must contain no more than {MAX_GALLERY_IMAGES} images."
+        )
     decoded_gallery = [
         decode_image(image, f"Gallery image {index}")
         for index, image in enumerate(gallery, start=1)
@@ -4735,7 +4763,7 @@ class BuilderHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if urlparse(self.path).path == "/api/health":
             self.send_json(
-                HTTPStatus.OK, {"status": "ok", "version": SITE_ASSET_VERSION}
+                HTTPStatus.OK, {"status": "ok", "version": BUILDER_VERSION}
             )
             return
         super().do_GET()

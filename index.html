@@ -16,10 +16,10 @@
             throw new Error(`Could not load builder configuration (${response.status}).`);
           }
           const configuration = await response.json();
-          if (!configuration?.builder || typeof configuration.builder !== "object") {
+          if (!configuration || typeof configuration !== "object") {
             throw new Error("Builder configuration is invalid.");
           }
-          window.builderConfig = configuration.builder;
+          window.builderConfig = configuration;
         }),
         new Promise((resolve) => {
           if (document.readyState === "loading") {
@@ -58,7 +58,7 @@
       </button>
       <div class="builder-intro">
         <p class="eyebrow" data-config-text="headerEyebrow">Instant site generation</p>
-        <h1 data-config-text="headerTitle">Everything your customers need, in one link</h1>
+        <h1 data-config-text="headings.header">Everything your customers need, in one link</h1>
         <p data-config-text="headerDescription">Fill it in. Live in seconds.</p>
         <span class="device-note" data-config-text="headerNote">No signup required. Preview instantly.</span>
       </div>
@@ -78,13 +78,13 @@
       <section class="home-screen" id="home-screen">
         <div class="home-welcome">
           <p class="eyebrow" data-config-text="homeEyebrow">Your website, your way</p>
-          <h2 data-config-text="homeTitle">What would you like to do?</h2>
+          <h2 data-config-text="headings.home">What would you like to do?</h2>
           <p data-config-text="homeDescription">Create something new, update an existing website, or reach out to us.</p>
         </div>
         <section class="created-website-result" id="created-website-result" hidden>
           <div>
-            <p class="eyebrow" id="published-website-label">Website created</p>
-            <h3 data-config-text="readyTitle">Your website is ready!</h3>
+            <p class="eyebrow" id="published-website-label" data-config-text="taglines.createdLabel">Website created</p>
+            <h3 data-config-text="headings.ready">Your website is ready!</h3>
             <p data-config-text="deploymentPending">If it doesn't load right away, wait a bit and refresh — deployment is still finishing up.</p>
           </div>
           <a id="created-website-link" target="_blank" rel="noopener noreferrer">
@@ -95,24 +95,24 @@
           <article class="home-action-card home-action-primary" id="create-website-card">
             <span class="home-action-icon" aria-hidden="true">+</span>
             <div>
-              <h3 data-config-text="createCardTitle">Create website</h3>
-              <p data-config-text="createCardDescription">Start fresh and publish your business website in minutes.</p>
+              <h3 data-config-text="taglines.createCardTitle">Create website</h3>
+              <p data-config-text="taglines.createCardDescription">Start fresh and publish your business website in minutes.</p>
             </div>
             <button id="start-create-website" type="button">Create website <span aria-hidden="true">→</span></button>
           </article>
           <article class="home-action-card">
             <span class="home-action-icon" aria-hidden="true">✎</span>
             <div>
-              <h3 id="manage-website-title" data-config-text="manageCardTitle">Manage website</h3>
-              <p id="manage-website-description" data-config-text="manageCardDescription">Load your existing website details and continue editing.</p>
+              <h3 id="manage-website-title" data-config-text="taglines.manageCardTitle">Manage website</h3>
+              <p id="manage-website-description" data-config-text="taglines.manageCardDescription">Load your existing website details and continue editing.</p>
             </div>
             <button id="show-manage-website" type="button">Manage website <span aria-hidden="true">→</span></button>
           </article>
           <article class="home-action-card">
             <span class="home-action-icon" aria-hidden="true">×</span>
             <div>
-              <h3 data-config-text="deleteCardTitle">Delete website</h3>
-              <p data-config-text="deleteCardDescription">Delete an existing website using its account email.</p>
+              <h3 data-config-text="taglines.deleteCardTitle">Delete website</h3>
+              <p data-config-text="taglines.deleteCardDescription">Delete an existing website using its account email.</p>
             </div>
             <button id="show-delete-website" type="button">Delete website <span aria-hidden="true">→</span></button>
           </article>
@@ -203,8 +203,8 @@
         <section class="form-card" data-step-title="Company">
           <div class="section-heading">
             <div>
-              <h2>Company details</h2>
-              <p>These details create the header and hero section.</p>
+              <h2 data-config-text="headings.company">Company details</h2>
+              <p data-config-text="about.company">These details create the header and hero section.</p>
             </div>
           </div>
 
@@ -300,7 +300,7 @@
         <section class="form-card configurable-section" data-fields-for="services" data-step-title="Offerings">
           <div class="section-heading compact">
             <div>
-              <h2>What you offer</h2>
+              <h2 data-config-text="headings.offerings">What you offer</h2>
             </div>
           </div>
           <div class="service-editor-list" id="service-editor-list"></div>
@@ -320,7 +320,7 @@
         <section class="form-card configurable-section" data-fields-for="gallery" data-step-title="Gallery">
           <div class="section-heading compact">
             <div>
-              <h2>Gallery</h2>
+              <h2 data-config-text="headings.gallery">Gallery</h2>
             </div>
           </div>
           <div class="gallery-image-field">
@@ -342,7 +342,7 @@
               </label>
               <div class="gallery-previews" id="gallery-previews"></div>
             </div>
-            <small data-config-text="galleryHelp">Up to 8 gallery images. Maximum 5 MB each.</small>
+            <small>Up to 8 gallery images. Maximum 5 MB each.</small>
             <p class="section-validation-error" id="gallery-validation-error" role="alert" hidden></p>
           </div>
         </section>
@@ -350,7 +350,7 @@
         <section class="form-card configurable-section" data-fields-for="contact" data-step-title="Contact">
           <div class="section-heading compact">
             <div>
-              <h2>Contact details</h2>
+              <h2 data-config-text="headings.contact">Contact details</h2>
             </div>
           </div>
           <div class="field-grid">
@@ -389,7 +389,7 @@
         <section class="form-card configurable-section" data-fields-for="reviews" data-step-title="Inquiries &amp; Reviews">
           <div class="section-heading compact">
             <div>
-              <h2>Inquiries &amp; Reviews setup</h2>
+              <h2 data-config-text="headings.inquiriesReviews">Inquiries &amp; Reviews setup</h2>
             </div>
           </div>
           <label class="full-width">
@@ -426,8 +426,8 @@
         <section class="form-card" data-step-title="Follow">
           <div class="section-heading compact">
             <div>
-              <h2>Follow</h2>
-              <p>Add any social or podcast links that should appear on the website.</p>
+              <h2 data-config-text="headings.follow">Follow</h2>
+              <p data-config-text="about.follow">Add any social or podcast links that should appear on the website.</p>
             </div>
           </div>
           <div class="field-grid">
@@ -465,7 +465,7 @@
         <section class="form-card configurable-section" data-fields-for="appointment" data-step-title="Appointment">
           <div class="section-heading compact">
             <div>
-              <h2>Appointment</h2>
+              <h2 data-config-text="headings.appointment">Appointment</h2>
             </div>
           </div>
           <label>
@@ -494,8 +494,8 @@
         <div class="preview-heading">
           <div>
             <p class="eyebrow">Website design</p>
-            <h2>Select a template</h2>
-            <p>Choose the colors, background, and layout for your website.</p>
+            <h2 data-config-text="headings.template">Select a template</h2>
+            <p data-config-text="about.template">Choose the colors, background, and layout for your website.</p>
           </div>
         </div>
 
@@ -661,7 +661,7 @@
                 Preview
               </button>
               <button class="field-info" type="button" aria-expanded="false" aria-controls="preview-image-info" aria-label="Preview image information">i</button>
-              <span class="info-popover info-popover-wide" id="preview-image-info" role="tooltip" hidden data-config-text="previewImageInfo">Images in this preview may use compressed thumbnails. Your published website uses the original images.</span>
+              <span class="info-popover info-popover-wide" id="preview-image-info" role="tooltip" hidden data-config-text="about.previewImages">Images in this preview may use compressed thumbnails. Your published website uses the original images.</span>
             </span>
             <div class="final-generation" id="final-generation" hidden>
               <button id="create-website-api" type="button">Create website</button>

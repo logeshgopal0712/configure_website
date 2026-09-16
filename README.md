@@ -17,6 +17,12 @@ The builder opens at <http://127.0.0.1:8766>. Complete the form and select
 Optional pages are included automatically when their corresponding content is
 provided.
 
+Builder-facing text and colors are kept in the small `data/data.json` file.
+Change values under `headings`, `taglines`, or `about` to update the matching
+builder content. The `colors` section contains only `primary`, `button`, and
+`completion`; the completion color controls the Create/Modify success area.
+APIs, validation rules, defaults, and image limits remain in code.
+
 The builder uses nine named steps. The step names at the top are clickable for
 quick navigation, while forward navigation still validates required earlier
 fields. Template configuration is step 8 and Preview is step 9. The Create or
