@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Configure and generate a responsive company website."
+    />
+    <title>Website Builder</title>
+    <link rel="stylesheet" href="styles.css?v=105" />
+    <script>
+      window.builderConfigReady = Promise.all([
+        fetch("data/data.json", { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Could not load builder configuration (${response.status}).`);
+          }
+          const configuration = await response.json();
+          if (!configuration?.builder || typeof configuration.builder !== "object") {
+            throw new Error("Builder configuration is invalid.");
+          }
+          window.builderConfig = configuration.builder;
+        }),
+        new Promise((resolve) => {
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", resolve, { once: true });
+          } else {
+            resolve();
+          }
+        }),
+      ])
+        .then(() => {
+          const script = document.createElement("script");
+          script.src = `app.js?v=${encodeURIComponent(window.builderConfig.version)}`;
+          document.head.append(script);
+        })
+        .catch((error) => {
+          console.error("Builder startup failed.", error);
+          const showError = () => {
+            const status = document.querySelector("#server-status");
+            if (!status) return;
+            status.hidden = false;
+            status.className = "server-status disconnected";
+            status.textContent = `Builder configuration error: ${error.message}`;
+          };
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", showError, { once: true });
+          } else {
+            showError();
+          }
+        });
+    </script>
+  </head>
+  <body>
+    <header class="builder-header">
+      <button class="builder-logo" id="header-home-logo" type="button" aria-label="Go to homepage">
+        <span>Logo</span>
+      </button>
+      <div class="builder-intro">
+        <p class="eyebrow" data-config-text="headerEyebrow">Instant site generation</p>
+        <h1 data-config-text="headerTitle">Everything your customers need, in one link</h1>
+        <p data-config-text="headerDescription">Fill it in. Live in seconds.</p>
+        <span class="device-note" data-config-text="headerNote">No signup required. Preview instantly.</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="server-warning" id="server-warning" role="alert" hidden>
+        <strong>The Website Builder server is not running.</strong>
+        <span>
+          Close this page and double-click <code>start.command</code>. Do not
+          open <code>index.html</code> directly.
+        </span>
+      </div>
+      <div class="server-status" id="server-status" role="status" hidden>
+        Checking the Website Builder server...
+      </div>
+      <section class="home-screen" id="home-screen">
+        <div class="home-welcome">
+          <p class="eyebrow" data-config-text="homeEyebrow">Your website, your way</p>
+          <h2 data-config-text="homeTitle">What would you like to do?</h2>
+          <p data-config-text="homeDescription">Create something new, update an existing website, or reach out to us.</p>
+        </div>
+        <section class="created-website-result" id="created-website-result" hidden>
+          <div>
+            <p class="eyebrow" id="published-website-label">Website created</p>
+            <h3 data-config-text="readyTitle">Your website is ready!</h3>
+            <p data-config-text="deploymentPending">If it doesn't load right away, wait a bit and refresh — deployment is still finishing up.</p>
+          </div>
+          <a id="created-website-link" target="_blank" rel="noopener noreferrer">
+            <span data-config-text="viewWebsite">View My Website →</span>
+          </a>
+        </section>
+        <div class="home-actions">
+          <article class="home-action-card home-action-primary" id="create-website-card">
+            <span class="home-action-icon" aria-hidden="true">+</span>
+            <div>
+              <h3 data-config-text="createCardTitle">Create website</h3>
+              <p data-config-text="createCardDescription">Start fresh and publish your business website in minutes.</p>
+            </div>
+            <button id="start-create-website" type="button">Create website <span aria-hidden="true">→</span></button>
+          </article>
+          <article class="home-action-card">
+            <span class="home-action-icon" aria-hidden="true">✎</span>
+            <div>
+              <h3 id="manage-website-title" data-config-text="manageCardTitle">Manage website</h3>
+              <p id="manage-website-description" data-config-text="manageCardDescription">Load your existing website details and continue editing.</p>
+            </div>
+            <button id="show-manage-website" type="button">Manage website <span aria-hidden="true">→</span></button>
+          </article>
+          <article class="home-action-card">
+            <span class="home-action-icon" aria-hidden="true">×</span>
+            <div>
+              <h3 data-config-text="deleteCardTitle">Delete website</h3>
+              <p data-config-text="deleteCardDescription">Delete an existing website using its account email.</p>
+            </div>
+            <button id="show-delete-website" type="button">Delete website <span aria-hidden="true">→</span></button>
+          </article>
+        </div>
+
+        <section class="home-panel manage-panel" id="manage-panel" hidden>
+          <div class="home-panel-heading">
+            <div>
+              <p class="eyebrow">Manage website</p>
+              <h3>Edit an existing website</h3>
+            </div>
+            <button class="panel-close" type="button" data-close-panel="manage-panel" aria-label="Close manage website">×</button>
+          </div>
+          <div class="field-grid">
+            <label>
+              Account email
+              <input id="manage-email" type="email" placeholder="e.g. hello@example.com" required />
+            </label>
+          </div>
+          <button class="home-panel-action" id="load-website" type="button">
+            Load website for editing <span aria-hidden="true">→</span>
+          </button>
+          <p id="manage-status" class="home-panel-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="home-panel delete-panel" id="delete-panel" hidden>
+          <div class="home-panel-heading">
+            <div>
+              <p class="eyebrow">Delete website</p>
+              <h3>Remove an existing website</h3>
+            </div>
+            <button class="panel-close" type="button" data-close-panel="delete-panel" aria-label="Close delete website">×</button>
+          </div>
+          <div class="field-grid">
+            <label>
+              Account email
+              <input id="delete-email" type="email" placeholder="e.g. hello@example.com" required />
+            </label>
+          </div>
+          <button class="home-panel-action delete-website-action" id="delete-website" type="button">
+            Delete website
+          </button>
+          <p id="delete-status" class="home-panel-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="home-panel contact-us-panel">
+          <div class="home-panel-heading">
+            <div>
+              <p class="eyebrow">Contact us</p>
+              <h3>How can we help?</h3>
+            </div>
+          </div>
+          <form id="builder-contact-form">
+            <div class="field-grid">
+              <label>
+                Name
+                <input name="name" required placeholder="e.g. Alex Morgan" />
+              </label>
+              <label>
+                Email
+                <input name="email" type="email" required placeholder="e.g. alex@example.com" />
+              </label>
+              <label class="full-width">
+                Message
+                <textarea name="message" required rows="4" placeholder="e.g. Tell us how we can help"></textarea>
+              </label>
+            </div>
+            <button class="home-panel-action" type="submit">Send message <span aria-hidden="true">→</span></button>
+            <p id="contact-us-status" class="home-panel-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </section>
+
+      <section id="builder-workspace" hidden>
+        <p class="builder-prompt">Try it for free!</p>
+        <form id="website-form" novalidate>
+        <div class="wizard-progress" aria-live="polite">
+          <div>
+            <span id="wizard-step-count">Step 1</span>
+            <strong id="wizard-step-title">Company details</strong>
+            <button class="builder-home-button" id="back-to-home" type="button">Home</button>
+          </div>
+          <div class="wizard-progress-track" aria-hidden="true">
+            <span id="wizard-progress-bar"></span>
+          </div>
+          <nav class="wizard-step-links" id="wizard-step-links" aria-label="Website setup steps"></nav>
+        </div>
+        <section class="form-card" data-step-title="Company">
+          <div class="section-heading">
+            <div>
+              <h2>Company details</h2>
+              <p>These details create the header and hero section.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              <span class="label-with-info">
+                Company name <span aria-hidden="true">*</span>
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="company-name-info" aria-label="Company name information">i</button>
+                <span class="info-popover" id="company-name-info" role="tooltip" hidden>This is your unique business name as it'll appear on your website. Another website cannot use the same company name. Max 60 characters.</span>
+              </span>
+              <input name="companyName" required maxlength="60" placeholder="e.g. Acme Studio" />
+            </label>
+            <label>
+              <span class="label-with-info">
+                Year started
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="year-started-info" aria-label="Year started information">i</button>
+                <span class="info-popover" id="year-started-info" role="tooltip" hidden>The year you started. Shown as "Since 20XX" on your site.</span>
+              </span>
+              <input
+                name="yearStarted"
+                type="number"
+                min="1800"
+                placeholder="e.g. 2020"
+              />
+            </label>
+            <label>
+              <span class="label-with-info">
+                Short tagline
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="tagline-info" aria-label="Tagline information">i</button>
+                <span class="info-popover" id="tagline-info" role="tooltip" hidden>A short catchy line under your business name. Max 180 characters.</span>
+              </span>
+              <input
+                name="tagline"
+                maxlength="180"
+                placeholder="e.g. Ideas designed for tomorrow"
+              />
+            </label>
+            <label class="full-width">
+              <span class="label-with-info">
+                Company description
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="description-info" aria-label="Company description information">i</button>
+                <span class="info-popover" id="description-info" role="tooltip" hidden>A brief summary of what you do. Max 1000 characters.</span>
+              </span>
+              <textarea
+                name="description"
+                maxlength="1000"
+                rows="4"
+                placeholder="e.g. Describe what your company does and who it helps."
+              ></textarea>
+            </label>
+            <div class="logo-field">
+              <span class="label-with-info">
+                Logo
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="logo-info" aria-label="Logo information">i</button>
+                <span class="info-popover" id="logo-info" role="tooltip" hidden>Your business logo. PNG, JPG, WebP, or GIF. Maximum 5 MB.</span>
+              </span>
+              <div class="logo-upload-row">
+                <label class="logo-file-button">
+                  Choose file
+                  <input
+                    class="logo-file-input"
+                    name="logo"
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp,.gif"
+                  />
+                </label>
+                <span class="logo-preview" id="logo-preview" hidden>
+                  <img id="logo-preview-image" alt="Selected logo preview" />
+                  <button
+                    id="remove-logo"
+                    type="button"
+                    aria-label="Remove selected logo"
+                  >×</button>
+                </span>
+              </div>
+            </div>
+            <label class="full-width">
+              <span class="label-with-info">
+                About us
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="about-info" aria-label="About content information">i</button>
+                <span class="info-popover" id="about-info" role="tooltip" hidden>Tell your story — your journey, values, what makes you different. Max 500 characters.</span>
+              </span>
+              <textarea
+                name="about"
+                maxlength="500"
+                rows="5"
+                placeholder="e.g. Share your purpose, experience, and values."
+              ></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-card configurable-section" data-fields-for="services" data-step-title="Offerings">
+          <div class="section-heading compact">
+            <div>
+              <h2>What you offer</h2>
+            </div>
+          </div>
+          <div class="service-editor-list" id="service-editor-list"></div>
+          <p
+            class="section-validation-error"
+            id="services-validation-error"
+            role="alert"
+            hidden
+          >
+            Add at least one offering before continuing.
+          </p>
+          <button class="add-service-button" id="add-service" type="button">
+            + Add another offering
+          </button>
+        </section>
+
+        <section class="form-card configurable-section" data-fields-for="gallery" data-step-title="Gallery">
+          <div class="section-heading compact">
+            <div>
+              <h2>Gallery</h2>
+            </div>
+          </div>
+          <div class="gallery-image-field">
+            <span class="label-with-info">
+              Gallery images
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="gallery-images-info" aria-label="Gallery image information">i</button>
+              <span class="info-popover" id="gallery-images-info" role="tooltip" hidden>Supported formats: PNG, JPG, WebP, and GIF. HEIC is not supported. Maximum 5 MB each.</span>
+            </span>
+            <div class="image-upload-row">
+              <label class="image-file-button">
+                Choose files
+                <input
+                  class="image-file-input"
+                  name="gallery"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,.gif"
+                  multiple
+                />
+              </label>
+              <div class="gallery-previews" id="gallery-previews"></div>
+            </div>
+            <small data-config-text="galleryHelp">Up to 8 gallery images. Maximum 5 MB each.</small>
+            <p class="section-validation-error" id="gallery-validation-error" role="alert" hidden></p>
+          </div>
+        </section>
+
+        <section class="form-card configurable-section" data-fields-for="contact" data-step-title="Contact">
+          <div class="section-heading compact">
+            <div>
+              <h2>Contact details</h2>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="contact-primary-fields full-width">
+              <label>
+                <span class="label-with-info">
+                  Contact email <span aria-hidden="true">*</span>
+                  <button class="field-info" type="button" aria-expanded="false" aria-controls="contact-email-info" aria-label="Contact email information">i</button>
+                  <span class="info-popover" id="contact-email-info" role="tooltip" hidden>This email uniquely identifies your website and cannot be used for another website.</span>
+                </span>
+                <input id="contact-email" name="email" type="email" required placeholder="e.g. hello@example.com" />
+                <small id="modify-email-message" class="modify-only-message" hidden>Contact the team to update the email ID.</small>
+              </label>
+              <label>
+                <span class="contact-field-label">Phone</span>
+                <input name="phone" type="tel" placeholder="e.g. +1 555 123 4567" />
+              </label>
+            </div>
+            <div class="quick-action-toggles full-width">
+              <label>
+                <input name="showCall" type="checkbox" />
+                Show call action
+              </label>
+              <label>
+                <input name="showEmail" type="checkbox" />
+                Show email action
+              </label>
+            </div>
+            <label class="full-width">
+              Address
+              <input name="address" placeholder="e.g. City, State, Country" />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-card configurable-section" data-fields-for="reviews" data-step-title="Inquiries &amp; Reviews">
+          <div class="section-heading compact">
+            <div>
+              <h2>Inquiries &amp; Reviews setup</h2>
+            </div>
+          </div>
+          <label class="full-width">
+            <span class="label-with-info">
+              Web3Forms access key
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="web3forms-info" aria-label="Web3Forms setup information">i</button>
+              <span class="info-popover" id="web3forms-info" role="tooltip" hidden>
+                Skip this section if your business does not require contact and review forms.
+                <ol>
+                  <li>Go to <a href="https://web3forms.com/" target="_blank" rel="noopener noreferrer">web3forms.com</a> and sign up (free).</li>
+                  <li>Create a form.</li>
+                  <li>Copy and paste the form access key here.</li>
+                </ol>
+              </span>
+            </span>
+            <input
+              name="contactAccessKey"
+              placeholder="e.g. Paste your Web3Forms access key"
+            />
+          </label>
+          <div class="published-reviews">
+            <span class="label-with-info">
+              Published customer reviews
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="published-reviews-info" aria-label="Published reviews information">i</button>
+              <span class="info-popover" id="published-reviews-info" role="tooltip" hidden>Leave it blank if there are no reviews for your business so far. Try it out if you want to see reviews on the preview page.</span>
+            </span>
+            <div class="review-editor-list" id="review-editor-list"></div>
+            <button class="add-service-button" id="add-review" type="button">
+              + Add another review
+            </button>
+          </div>
+        </section>
+
+        <section class="form-card" data-step-title="Follow">
+          <div class="section-heading compact">
+            <div>
+              <h2>Follow</h2>
+              <p>Add any social or podcast links that should appear on the website.</p>
+            </div>
+          </div>
+          <div class="field-grid">
+            <label>
+              Instagram URL
+              <input name="instagram" type="url" placeholder="e.g. https://instagram.com/your-company" />
+            </label>
+            <label>
+              Facebook URL
+              <input name="facebook" type="url" placeholder="e.g. https://facebook.com/your-company" />
+            </label>
+            <label>
+              LinkedIn URL
+              <input name="linkedin" type="url" placeholder="e.g. https://linkedin.com/company/your-company" />
+            </label>
+            <label>
+              Twitter / X URL
+              <input name="twitter" type="url" placeholder="e.g. https://x.com/your-company" />
+            </label>
+            <label>
+              YouTube URL
+              <input name="youtube" type="url" placeholder="e.g. https://youtube.com/@your-company" />
+            </label>
+            <label>
+              Apple Podcasts URL
+              <input name="applePodcast" type="url" placeholder="e.g. https://podcasts.apple.com/..." />
+            </label>
+            <label class="full-width">
+              Spotify URL
+              <input name="spotify" type="url" placeholder="e.g. https://open.spotify.com/show/..." />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-card configurable-section" data-fields-for="appointment" data-step-title="Appointment">
+          <div class="section-heading compact">
+            <div>
+              <h2>Appointment</h2>
+            </div>
+          </div>
+          <label>
+            <span class="label-with-info">
+              Calendly scheduling URL
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="appointment-info" aria-label="Appointment setup information">i</button>
+              <span class="info-popover info-popover-wide" id="appointment-info" role="tooltip" hidden>
+                If your business does not require appointments, skip this section.
+                <ol>
+                  <li>Go to <a href="https://calendly.com/" target="_blank" rel="noopener noreferrer">calendly.com</a> and sign up (free).</li>
+                  <li>Create an event (e.g. "30-min Consultation").</li>
+                  <li>Copy the event link and paste it here.</li>
+                </ol>
+                <strong>Tip:</strong> Calendly also lets you collect payments at booking — connect Stripe or PayPal inside your event settings.
+              </span>
+            </span>
+            <input
+              name="appointmentUrl"
+              type="url"
+              placeholder="e.g. https://calendly.com/your-name/consultation"
+            />
+          </label>
+        </section>
+
+        <section class="form-card preview-section" data-step-title="Template">
+        <div class="preview-heading">
+          <div>
+            <p class="eyebrow">Website design</p>
+            <h2>Select a template</h2>
+            <p>Choose the colors, background, and layout for your website.</p>
+          </div>
+        </div>
+
+        <section class="design-controls">
+          <div class="design-controls-heading">
+            <div>
+              <p class="eyebrow">Colors</p>
+              <h3>Choose the website colors</h3>
+            </div>
+            <p>Adjust colors here, then render the preview below.</p>
+          </div>
+          <div class="design-color-grid">
+            <label>
+              <span class="label-with-info">
+                Primary accent color
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="primary-color-info" aria-label="Primary color information">i</button>
+                <span class="info-popover" id="primary-color-info" role="tooltip" hidden>Used for buttons, links, carousel arrows, and visual accents.</span>
+              </span>
+              <input
+                name="brandColor"
+                type="color"
+                value="#c79245"
+                form="website-form"
+              />
+            </label>
+            <label>
+              <span class="label-with-info">
+                Secondary background color
+                <button class="field-info" type="button" aria-expanded="false" aria-controls="secondary-color-info" aria-label="Secondary color information">i</button>
+                <span class="info-popover" id="secondary-color-info" role="tooltip" hidden>Used for the header, hero, and navigation background.</span>
+              </span>
+              <input
+                name="secondaryColor"
+                type="color"
+                value="#172238"
+                form="website-form"
+              />
+            </label>
+          </div>
+          <div class="page-color-controls">
+            <div class="page-background-row">
+              <label class="page-color-toggle">
+                <input
+                  name="usePageColor"
+                  type="checkbox"
+                  form="website-form"
+                />
+                Choose a custom page background
+              </label>
+              <label class="page-background-color">
+                Color
+                <input
+                  name="pageColor"
+                  type="color"
+                  value="#fbfaf7"
+                  form="website-form"
+                />
+              </label>
+            </div>
+            <div class="page-color-options" id="page-color-options">
+              <label class="page-color-toggle">
+                <input
+                  name="transparentPageColor"
+                  type="checkbox"
+                  form="website-form"
+                />
+                Use this color with transparency
+              </label>
+              <label class="page-opacity-control">
+                Surface opacity
+                <input
+                  name="pageColorOpacity"
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value="70"
+                  form="website-form"
+                />
+                <output id="page-color-opacity-output">70%</output>
+              </label>
+              <small class="page-opacity-help">
+                Lower values reveal more of the brand gradient underneath.
+                100% creates a solid background.
+              </small>
+            </div>
+          </div>
+          <div class="background-image-control">
+            <span class="label-with-info">
+              Website background image
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="background-image-info" aria-label="Background image information">i</button>
+              <span class="info-popover" id="background-image-info" role="tooltip" hidden>Optional. Supported formats: PNG, JPG, WebP, and GIF. Maximum 5 MB.</span>
+            </span>
+            <div class="image-upload-row">
+              <label class="image-file-button">
+                Choose file
+                <input
+                  class="image-file-input"
+                  name="backgroundImage"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,.gif"
+                  form="website-form"
+                />
+              </label>
+              <span class="background-image-preview image-preview" id="background-image-preview" hidden>
+                <img id="background-image-preview-image" alt="Selected background image preview" />
+                <button id="clear-background-image" type="button" aria-label="Remove background image">×</button>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <fieldset class="template-picker bottom-template-picker">
+          <legend>Template</legend>
+          <label>
+            <input
+              type="radio"
+              name="template"
+              value="logo-left"
+              form="website-form"
+              checked
+            />
+            <span class="template-preview logo-left-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <strong>Template 1</strong>
+            <small>Logo left, content right</small>
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="template"
+              value="logo-right"
+              form="website-form"
+            />
+            <span class="template-preview logo-right-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <strong>Template 2</strong>
+            <small>Content left, logo right</small>
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="template"
+              value="centered"
+              form="website-form"
+            />
+            <span class="template-preview centered-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <strong>Template 3</strong>
+            <small>Centered and stacked</small>
+          </label>
+        </fieldset>
+        </section>
+
+        <section class="form-card preview-section" id="website-preview" data-step-title="Preview">
+        <div class="preview-toolbar">
+          <div class="preview-action-group">
+            <span class="label-with-info">
+              <button class="preview-button" id="preview-website" type="button">
+                Preview
+              </button>
+              <button class="field-info" type="button" aria-expanded="false" aria-controls="preview-image-info" aria-label="Preview image information">i</button>
+              <span class="info-popover info-popover-wide" id="preview-image-info" role="tooltip" hidden data-config-text="previewImageInfo">Images in this preview may use compressed thumbnails. Your published website uses the original images.</span>
+            </span>
+            <div class="final-generation" id="final-generation" hidden>
+              <button id="create-website-api" type="button">Create website</button>
+            </div>
+          </div>
+          <div class="preview-devices" aria-label="Preview size">
+            <button class="active" type="button" data-preview-size="desktop">
+              Desktop
+            </button>
+            <button type="button" data-preview-size="mobile">Mobile</button>
+          </div>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+
+        <div class="preview-placeholder" id="preview-placeholder">
+          Select a template and click <strong>Preview</strong>.
+        </div>
+        <div class="preview-frame-shell" id="preview-frame-shell" hidden>
+          <iframe
+            id="preview-frame"
+            title="Generated website preview"
+            sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
+          ></iframe>
+        </div>
+        <div id="data-delivery-status" role="status" aria-live="polite"></div>
+        </section>
+
+        <nav class="wizard-navigation" aria-label="Form pages">
+          <button id="previous-page" type="button">
+            <span aria-hidden="true">←</span> Previous page
+          </button>
+          <button id="next-page" type="button">
+            Next page <span aria-hidden="true">→</span>
+          </button>
+        </nav>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
