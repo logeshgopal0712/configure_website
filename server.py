@@ -16,12 +16,12 @@ from urllib.parse import quote, urlparse
 
 HOST = "127.0.0.1"
 PORT = 8766
-SITE_ASSET_VERSION = 104
+SITE_ASSET_VERSION = 115
 PROJECT_DIR = Path(__file__).resolve().parent
-BUILDER_VERSION = 105
+BUILDER_VERSION = 135
 MAX_REQUEST_SIZE = 75 * 1024 * 1024
-MAX_IMAGE_SIZE = 5 * 1024 * 1024
-MAX_GALLERY_IMAGES = 8
+MAX_IMAGE_SIZE = 2 * 1024 * 1024
+MAX_GALLERY_IMAGES = 24
 MAX_OFFERINGS = 30
 MAX_REVIEWS = 12
 COMPANY_NAME_MAX_LENGTH = 60
@@ -523,7 +523,7 @@ def render_service_card(service, index):
         else ""
     )
     link = (
-        f'<a class="service-link" href="{html.escape(service["link"], quote=True)}" target="_blank" rel="noopener noreferrer">View service <span aria-hidden="true">↗</span></a>'
+        f'<a class="service-link" href="{html.escape(service["link"], quote=True)}" target="_blank" rel="noopener noreferrer">View offering <span aria-hidden="true">↗</span></a>'
         if service["link"]
         else ""
     )
@@ -584,7 +584,7 @@ def decode_image(image, field):
     except (binascii.Error, ValueError) as error:
         raise ValueError(f"{field} image data is invalid.") from error
     if not raw or len(raw) > MAX_IMAGE_SIZE:
-        raise ValueError(f"{field} image must be between 1 byte and 5 MB.")
+        raise ValueError(f"{field} image must be between 1 byte and 2 MB.")
     return raw, ALLOWED_IMAGES[mime_type]
 
 
@@ -897,7 +897,7 @@ def build_preview_site(data, asset_paths):
     <link rel="stylesheet" href="styles.css?v={SITE_ASSET_VERSION}" />
     <script src="script.js?v={SITE_ASSET_VERSION}" defer></script>
   </head>
-  <body data-template="{html.escape(data["template"], quote=True)}">
+  <body data-template="{html.escape(data["template"], quote=True)}" data-header-text="{html.escape(data["headerTextColor"], quote=True)}" data-header-image="{"true" if asset_paths.get("backgroundImage") else "false"}" data-logo-display="{"image" if asset_paths.get("logo") else "text"}">
     <header class="site-header">
       <nav class="nav-shell" aria-label="Main navigation">
         <a class="brand" href="#top" aria-label="{escaped_company} home">
@@ -918,7 +918,7 @@ def build_preview_site(data, asset_paths):
           <p class="hero-description">{html.escape(data["description"])}</p>
           <div class="hero-actions">{quote_button}{learn_more}</div>
         </div>
-        <div class="hero-art">{hero_logo}</div>
+        <div class="hero-art">{hero_logo}<strong class="hero-text-logo">{escaped_company}</strong></div>
       </div>
     </header>
     {build_social_strip(data)}
@@ -930,7 +930,10 @@ def build_preview_site(data, asset_paths):
         {logo}
         <strong>{escaped_company}</strong>
       </a>
-      <small>© <span id="copyright-years" data-start-year="{data["yearStarted"]}"></span> {escaped_company}. All rights reserved.</small>
+      <div class="footer-meta">
+        <small>© <span id="copyright-years" data-start-year="{data["yearStarted"]}"></span> {escaped_company}. All rights reserved.</small>
+        <small class="gudispace-attribution">Built using <a href="https://gudispace.com/" target="_blank" rel="noopener noreferrer">GudiSpace.com</a></small>
+      </div>
     </footer>
   </body>
 </html>
@@ -946,9 +949,12 @@ def build_preview_site(data, asset_paths):
     styles_css = styles_css.replace("__SECONDARY__", data["secondaryColor"])
     styles_css = styles_css.replace("__SECONDARY_DARK__", secondary_dark)
     styles_css = styles_css.replace("__SECONDARY_LIGHT__", secondary_light)
-    styles_css = styles_css.replace(
-        "__ON_SECONDARY__", contrast_color(data["secondaryColor"])
+    header_text_color = (
+        "#111827"
+        if asset_paths.get("backgroundImage")
+        else contrast_color(data["secondaryColor"])
     )
+    styles_css = styles_css.replace("__ON_SECONDARY__", header_text_color)
     styles_css = styles_css.replace("__ON_BRAND__", contrast_color(data["brandColor"]))
     default_page_color = "#fbfaf7"
     if not data["usePageColor"]:
@@ -982,12 +988,8 @@ def build_preview_site(data, asset_paths):
         "var(--secondary) 58%, var(--secondary-dark))"
     )
     if asset_paths.get("backgroundImage"):
-        overlay = rgba_color(data["secondaryColor"], 72)
         background_url = asset_paths["backgroundImage"].replace('"', '\\"')
-        hero_background = (
-            f"linear-gradient({overlay}, {overlay}), "
-            f'url("{background_url}") center center / cover no-repeat'
-        )
+        hero_background = f'url("{background_url}") center center / cover no-repeat'
     styles_css = styles_css.replace("__PAGE__", page_css_color)
     styles_css = styles_css.replace(
         "__ON_PAGE__", contrast_color(contrast_page_color)
@@ -1388,6 +1390,8 @@ SITE_CSS = """:root {
   --on-brand: __ON_BRAND__;
   --on-page: __ON_PAGE__;
   --page-blur: __PAGE_BLUR__;
+  --header-primary-surface: color-mix(in srgb, var(--brand) 6%, rgb(255 255 255 / 40%));
+  --header-secondary-surface: color-mix(in srgb, var(--secondary) 6%, rgb(255 255 255 / 40%));
   --hero-background: __HERO_BACKGROUND__;
   --border: #e3e3df;
   --shadow: 0 20px 55px rgba(23, 34, 56, 0.12);
@@ -1497,6 +1501,12 @@ a {
   transform: translateX(-50%);
 }
 
+body[data-header-image="true"] .nav-shell,
+body[data-header-image="true"] .mobile-nav {
+  background: var(--header-secondary-surface);
+  border-color: color-mix(in srgb, var(--secondary) 24%, transparent);
+}
+
 .brand {
   display: inline-flex;
   gap: 11px;
@@ -1512,6 +1522,26 @@ a {
   object-fit: cover;
   border: 1px solid color-mix(in srgb, var(--on-secondary) 25%, transparent);
   border-radius: 50%;
+}
+
+body[data-logo-display="image"] .brand > strong,
+body[data-logo-display="text"] .brand > .company-logo-slot,
+body:not([data-logo-display="text"]) .hero-text-logo {
+  display: none;
+}
+
+body[data-logo-display="text"] .hero-art > .company-logo-slot {
+  display: none;
+}
+
+.hero-text-logo {
+  max-width: 100%;
+  color: var(--on-secondary);
+  font-family: var(--heading-font);
+  font-size: clamp(42px, 7vw, 86px);
+  line-height: 1;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .brand-mark {
@@ -1572,6 +1602,15 @@ a {
   padding: 60px 0;
 }
 
+body[data-header-image="true"] .hero-copy {
+  padding: 32px;
+  background: var(--header-primary-surface);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 18%);
+  backdrop-filter: blur(4px);
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: var(--brand);
@@ -1583,6 +1622,10 @@ a {
 
 .hero .eyebrow {
   color: color-mix(in srgb, var(--brand-light) 75%, var(--on-secondary));
+}
+
+body[data-header-image="true"] .hero .eyebrow {
+  color: var(--brand-dark);
 }
 
 h1,
@@ -2429,6 +2472,17 @@ body > main,
   color: color-mix(in srgb, var(--on-page) 70%, transparent);
 }
 
+.footer-meta {
+  display: grid;
+  gap: 5px;
+  text-align: right;
+}
+
+.gudispace-attribution a {
+  color: inherit;
+  font-weight: 700;
+}
+
 @media (max-width: 850px) {
   .desktop-nav {
     display: none;
@@ -2505,6 +2559,11 @@ body > main,
 }
 
 @media (max-width: 620px) {
+  .contact-form input,
+  .contact-form textarea {
+    font-size: 16px;
+  }
+
   .nav-shell,
   .hero,
   .content-section,
@@ -2680,6 +2739,10 @@ body > main,
     align-items: start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .footer-meta {
+    text-align: left;
   }
 }
 
@@ -2995,7 +3058,20 @@ body[data-template="logo-left"] .hero-copy {
 
 @media (max-width: 620px) {
   body[data-template="logo-left"] .hero {
-    grid-template-columns: minmax(105px, 0.75fr) minmax(0, 1.25fr);
+    grid-template-columns: 1fr;
+  }
+
+  body[data-template="logo-left"] .hero-art,
+  body[data-template="logo-left"] .hero-copy {
+    grid-column: 1;
+  }
+
+  body[data-template="logo-left"] .hero-art {
+    grid-row: 1;
+  }
+
+  body[data-template="logo-left"] .hero-copy {
+    grid-row: 2;
   }
 }
 """,
@@ -3018,7 +3094,20 @@ body[data-template="logo-right"] .hero-art {
 
 @media (max-width: 620px) {
   body[data-template="logo-right"] .hero {
-    grid-template-columns: minmax(0, 1.25fr) minmax(105px, 0.75fr);
+    grid-template-columns: 1fr;
+  }
+
+  body[data-template="logo-right"] .hero-art,
+  body[data-template="logo-right"] .hero-copy {
+    grid-column: 1;
+  }
+
+  body[data-template="logo-right"] .hero-copy {
+    grid-row: 1;
+  }
+
+  body[data-template="logo-right"] .hero-art {
+    grid-row: 2;
   }
 }
 """,
@@ -3108,6 +3197,17 @@ GENERATED_PAGES_CSS = """
   min-height: 250px;
   margin-inline: auto;
   align-content: center;
+}
+
+body[data-header-image="true"] .page-banner {
+  min-height: auto;
+  margin-block: 55px;
+  padding: 32px;
+  background: var(--header-primary-surface);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 18%);
+  backdrop-filter: blur(4px);
 }
 
 .page-banner h1 {
@@ -3268,6 +3368,7 @@ function applyCompanyData(company) {
   });
 
   const logoUrl = safeAssetUrl(company.image_src || company.image_path);
+  document.body.dataset.logoDisplay = logoUrl ? "image" : "text";
   const initials = companyInitials(companyName);
   document.querySelectorAll("[data-company-logo-slot]").forEach((slot) => {
     const variant = slot.dataset.logoVariant;
@@ -3465,8 +3566,12 @@ function applyTemplateData(template) {
   const backgroundImage = safeAssetUrl(
     template.background_image_src || template.background_image_path,
   );
+  document.body.dataset.headerImage = String(Boolean(backgroundImage));
+  if (backgroundImage) {
+    root.setProperty("--on-secondary", "#111827");
+  }
   const heroBackground = backgroundImage
-    ? `linear-gradient(${rgbaHexColor(secondary || "#172238", 72)}, ${rgbaHexColor(secondary || "#172238", 72)}), url("${backgroundImage.replaceAll('"', '\\"')}") center center / cover no-repeat`
+    ? `url("${backgroundImage.replaceAll('"', '\\"')}") center center / cover no-repeat`
     : "radial-gradient(circle at 82% 42%, color-mix(in srgb, var(--brand) 28%, transparent), transparent 26rem), linear-gradient(135deg, var(--secondary-dark), var(--secondary) 58%, var(--secondary-dark))";
   root.setProperty("--hero-background", heroBackground);
 
@@ -3749,7 +3854,7 @@ async function renderServices(services = currentSiteData?.services) {
                 ${service.price ? `<strong class="service-price">${escapeHtml(service.price)}</strong>` : ""}
                 ${
                   safeHttpUrl(service.link)
-                    ? `<a class="service-link" href="${escapeHtml(safeHttpUrl(service.link))}" target="_blank" rel="noopener noreferrer">View service <span aria-hidden="true">↗</span></a>`
+                    ? `<a class="service-link" href="${escapeHtml(safeHttpUrl(service.link))}" target="_blank" rel="noopener noreferrer">View offering <span aria-hidden="true">↗</span></a>`
                     : ""
                 }
                 ${
@@ -4037,6 +4142,12 @@ def validate_configuration(payload):
         ),
         "brandColor": validate_color(payload.get("brandColor")),
         "secondaryColor": validate_color(payload.get("secondaryColor")),
+        "headerTextColor": clean_text(
+            payload.get("headerTextColor", "light"),
+            "Header text color",
+            True,
+            10,
+        ),
         "pageColor": validate_color(payload.get("pageColor", "#fbfaf7")),
         "usePageColor": payload.get("usePageColor", False),
         "transparentPageColor": payload.get("transparentPageColor", False),
@@ -4122,6 +4233,8 @@ def validate_configuration(payload):
 
     if data["template"] not in TEMPLATES:
         raise ValueError("Template must be logo-left, logo-right, or centered.")
+    if data["headerTextColor"] not in {"light", "dark"}:
+        raise ValueError("Header text color must be light or dark.")
     if data["font"] not in FONTS:
         raise ValueError("Font must be modern, clean, or classic.")
     if not isinstance(data["usePageColor"], bool) or not isinstance(
@@ -4224,6 +4337,7 @@ def build_generated_site(data, asset_paths):
         "template": "logo-left",
         "brandColor": "#c79245",
         "secondaryColor": "#172238",
+        "headerTextColor": "light",
         "usePageColor": False,
         "pageColor": "#fbfaf7",
         "transparentPageColor": False,
@@ -4305,7 +4419,7 @@ def build_generated_site(data, asset_paths):
             {f'<a class="secondary-link" href="#{navigation[1][0].removesuffix(".html")}">Learn more <span aria-hidden="true">↓</span></a>' if len(navigation) > 1 else ''}
           </div>
         </div>
-        <div class="hero-art">{hero_logo_slot}</div>
+        <div class="hero-art">{hero_logo_slot}<strong class="hero-text-logo" data-company-name>{escaped_company}</strong></div>
       </div>
     </header>"""
         else:
@@ -4338,13 +4452,16 @@ def build_generated_site(data, asset_paths):
     <link rel="stylesheet" href="styles.css?v={SITE_ASSET_VERSION}" />
     <script src="script.js?v={SITE_ASSET_VERSION}" defer></script>
   </head>
-  <body data-page="{html.escape(page_name.removesuffix(".html"))}" data-page-title="{html.escape(title, quote=True)}" data-template="{html.escape(data["template"], quote=True)}">
+  <body data-page="{html.escape(page_name.removesuffix(".html"))}" data-page-title="{html.escape(title, quote=True)}" data-template="{html.escape(data["template"], quote=True)}" data-header-text="{html.escape(data["headerTextColor"], quote=True)}" data-header-image="{"true" if asset_paths.get("backgroundImage") else "false"}" data-logo-display="{"image" if asset_paths.get("logo") else "text"}">
     {header}
     {body}
     {build_social_strip(data, "footer", False, True)}
     <footer class="site-footer">
       <a class="brand footer-brand" href="index.html">{brand_logo_slot}<strong data-company-name>{escaped_company}</strong></a>
-      <small>© <span id="copyright-years" data-start-year="{data["yearStarted"]}"></span> <span data-company-name>{escaped_company}</span>. All rights reserved.</small>
+      <div class="footer-meta">
+        <small>© <span id="copyright-years" data-start-year="{data["yearStarted"]}"></span> <span data-company-name>{escaped_company}</span>. All rights reserved.</small>
+        <small class="gudispace-attribution">Built using <a href="https://gudispace.com/" target="_blank" rel="noopener noreferrer">GudiSpace.com</a></small>
+      </div>
     </footer>
   </body>
 </html>
@@ -4594,6 +4711,7 @@ def generate_website(payload):
                     "templateId": data["template"],
                     "primaryColor": data["brandColor"],
                     "secondaryColor": data["secondaryColor"],
+                    "headerTextColor": data["headerTextColor"],
                     "usePageColor": data["usePageColor"],
                     "pageColor": data["pageColor"],
                     "transparentPageColor": data["transparentPageColor"],

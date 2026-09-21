@@ -106,13 +106,37 @@ const finalGeneration = document.querySelector("#final-generation");
 const contactEmailField = document.querySelector("#contact-email");
 const modifyEmailMessage = document.querySelector("#modify-email-message");
 const dataDeliveryStatus = document.querySelector("#data-delivery-status");
-const maxImageSizeMb = 5;
+const operationLoader = document.querySelector("#operation-loader");
+const operationLoaderMessage = document.querySelector(
+  "#operation-loader-message",
+);
+const otpDialog = document.querySelector("#otp-dialog");
+const otpForm = document.querySelector("#otp-form");
+const otpEmail = document.querySelector("#otp-email");
+const otpInput = document.querySelector("#otp-input");
+const otpStatus = document.querySelector("#otp-status");
+const otpCancelButton = document.querySelector("#otp-cancel");
+const otpResendButton = document.querySelector("#otp-resend");
+const otpContinueButton = otpForm.querySelector('button[type="submit"]');
+const contactUsButton = builderContactForm.querySelector(
+  'button[type="submit"]',
+);
+const maxImageSizeMb = 2;
 const maxImageSize = maxImageSizeMb * 1024 * 1024;
-const maxGalleryImages = 8;
+const maxSourceImageSizeMb = 20;
+const maxSourceImageSize = maxSourceImageSizeMb * 1024 * 1024;
+const maxImageDimension = 2560;
+const maxGalleryImages = 24;
 const expectedServerVersion = Number(builderConfig.version);
 const web3FormsEndpoint = "https://api.web3forms.com/submit";
 const websiteGenerationEndpoint =
   "https://test.logeshgopal0712.workers.dev/api/generate";
+const otpGenerationEndpoint =
+  "https://test.logeshgopal0712.workers.dev/api/generateOtp";
+const publishedWebsiteRepository =
+  "https://raw.githubusercontent.com/logeshgopal0712/cloudflareTest";
+const publishedWebsiteBranchesEndpoint =
+  "https://api.github.com/repos/logeshgopal0712/cloudflareTest/branches?per_page=100";
 const builderContactEndpoint = "";
 const supportedImageTypes = new Set([
   "image/png",
@@ -120,7 +144,14 @@ const supportedImageTypes = new Set([
   "image/webp",
   "image/gif",
 ]);
-const supportedImagePattern = /\.(png|jpe?g|webp|gif)$/i;
+const heicImageTypes = new Set([
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+const supportedImagePattern = /\.(png|jpe?g|webp|gif|heic|heif)$/i;
+const heicImagePattern = /\.(heic|heif)$/i;
 const isOpenedDirectly = window.location.protocol === "file:";
 const isLocalBuilder = ["127.0.0.1", "localhost"].includes(
   window.location.hostname,
@@ -133,11 +164,180 @@ let importedBackgroundImage = null;
 let serviceEditorSequence = 0;
 let websiteOperation = "create";
 let lockedWebsiteEmail = "";
+let activeOtpRequest = null;
 const yearStartedField = form.elements.namedItem("yearStarted");
 const brandColorField = form.elements.namedItem("brandColor");
 const secondaryColorField = form.elements.namedItem("secondaryColor");
 const pageColorField = form.elements.namedItem("pageColor");
 const usePageColorField = form.elements.namedItem("usePageColor");
+
+async function runWithLoader(message, operation) {
+  operationLoaderMessage.textContent = message;
+  operationLoader.hidden = false;
+  document.body.classList.add("operation-in-progress");
+  try {
+    return await operation();
+  } finally {
+    operationLoader.hidden = true;
+    document.body.classList.remove("operation-in-progress");
+  }
+}
+
+class BackendRequestError extends Error {
+  constructor(message, status = 0, code = "") {
+    super(message);
+    this.name = "BackendRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function backendErrorMessage(data, fallback) {
+  const candidates = [
+    data?.message,
+    typeof data?.error === "string" ? data.error : data?.error?.message,
+    data?.details,
+  ];
+  return (
+    candidates.find(
+      (value) => typeof value === "string" && value.trim(),
+    )?.trim() || fallback
+  );
+}
+
+function backendErrorCode(data) {
+  const value = data?.code || data?.errorCode || data?.error?.code;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isOtpVerificationError(error) {
+  return (
+    [401, 403].includes(error?.status) ||
+    /(?:\botp\b|one[- ]time|verification code|security code|invalid code|expired code|incorrect code)/i.test(
+      `${error?.code || ""} ${error?.message || ""}`,
+    )
+  );
+}
+
+function setOtpSubmitting(submitting) {
+  otpContinueButton.disabled = submitting;
+  otpContinueButton.classList.toggle("otp-submitting", submitting);
+  otpContinueButton.setAttribute("aria-busy", String(submitting));
+  otpContinueButton.textContent = submitting ? "Verifying..." : "Continue";
+}
+
+function closeOtpDialog(cancelled = false) {
+  const request = activeOtpRequest;
+  activeOtpRequest = null;
+  otpDialog.hidden = true;
+  otpForm.reset();
+  otpStatus.hidden = true;
+  otpStatus.textContent = "";
+  setOtpSubmitting(false);
+  otpResendButton.disabled = false;
+  document.body.classList.remove("operation-in-progress");
+  if (cancelled) request?.onCancel?.();
+}
+
+async function sendOtp(email) {
+  const responseData = await runWithLoader("Sending OTP...", async () => {
+    const response = await fetch(otpGenerationEndpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error("OTP API returned invalid JSON.", error);
+      throw new Error("The server returned an invalid response.");
+    }
+    if (!response.ok || data.success === false) {
+      console.error("OTP API error:", data);
+      throw new BackendRequestError(
+        backendErrorMessage(data, "The OTP could not be sent."),
+        response.status,
+        backendErrorCode(data),
+      );
+    }
+    return data;
+  });
+  return responseData;
+}
+
+function openOtpDialog({ email, onVerify, onCancel, onOperationError }) {
+  activeOtpRequest = { email, onVerify, onCancel, onOperationError };
+  otpEmail.textContent = email;
+  otpStatus.hidden = true;
+  otpStatus.textContent = "";
+  otpDialog.hidden = false;
+  document.body.classList.add("operation-in-progress");
+  window.setTimeout(() => otpInput.focus(), 0);
+}
+
+async function startOtpVerification(options) {
+  await sendOtp(options.email);
+  openOtpDialog(options);
+}
+
+otpCancelButton.addEventListener("click", () => closeOtpDialog(true));
+
+otpDialog.addEventListener("click", (event) => {
+  if (event.target === otpDialog) closeOtpDialog(true);
+});
+
+otpResendButton.addEventListener("click", async () => {
+  if (!activeOtpRequest) return;
+  otpResendButton.disabled = true;
+  otpStatus.hidden = true;
+  try {
+    await sendOtp(activeOtpRequest.email);
+    otpStatus.textContent = "A new OTP was sent.";
+    otpStatus.className = "home-panel-status success";
+    otpStatus.hidden = false;
+    otpInput.focus();
+  } catch (error) {
+    otpStatus.textContent = error.message;
+    otpStatus.className = "home-panel-status error";
+    otpStatus.hidden = false;
+  } finally {
+    otpResendButton.disabled = false;
+  }
+});
+
+otpForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!activeOtpRequest || !otpForm.reportValidity()) return;
+  const otp = otpInput.value.trim();
+  if (!otp) return;
+
+  setOtpSubmitting(true);
+  otpResendButton.disabled = true;
+  otpStatus.hidden = true;
+  try {
+    await activeOtpRequest.onVerify(otp);
+    closeOtpDialog();
+  } catch (error) {
+    if (isOtpVerificationError(error)) {
+      otpStatus.textContent = error.message;
+      otpStatus.className = "home-panel-status error";
+      otpStatus.hidden = false;
+      otpInput.select();
+    } else {
+      const onOperationError = activeOtpRequest.onOperationError;
+      closeOtpDialog();
+      onOperationError?.(error);
+    }
+  } finally {
+    setOtpSubmitting(false);
+    otpResendButton.disabled = false;
+  }
+});
+
 const transparentPageColorField = form.elements.namedItem(
   "transparentPageColor",
 );
@@ -243,9 +443,11 @@ function portableImageValue(image) {
   return "";
 }
 
-function portableImageSource(image) {
+function portableImageSource(image, includePreviewSource = false) {
   if (!image || typeof image !== "object") return "";
-  return image.dataUrl?.startsWith("data:") ? image.dataUrl : image.image_src || "";
+  return image.dataUrl?.startsWith("data:")
+    ? image.dataUrl
+    : image.image_src || (includePreviewSource ? image.preview_src || "" : "");
 }
 
 function createMediaId(prefix = "image") {
@@ -270,7 +472,12 @@ function portableImageThumbnail(image) {
 }
 
 function imagePreviewValue(image) {
-  return portableImageThumbnail(image) || portableImageValue(image);
+  return (
+    image?.preview_src ||
+    image?.image_src ||
+    portableImageThumbnail(image) ||
+    portableImageValue(image)
+  );
 }
 
 function normalizeStoredImage(image, prefix = "media") {
@@ -288,7 +495,112 @@ function normalizeStoredImage(image, prefix = "media") {
     type: image.type || "",
     dataUrl,
     thumbnail,
+    image_src: image.image_src || "",
+    image_path: image.image_path || "",
+    preview_src: image.image_preview_src || image.preview_src || "",
   };
+}
+
+function collectStoredMedia(data) {
+  const backgroundImage = data.template || {};
+  if (backgroundImage.background_image_path) {
+    backgroundImage.image_path = backgroundImage.background_image_path;
+    backgroundImage.image_src = backgroundImage.background_image_src || "";
+  }
+  const media = [
+    data.company,
+    backgroundImage,
+    ...(Array.isArray(data.services) ? data.services : []),
+    ...(Array.isArray(data.gallery) ? data.gallery : []),
+  ];
+  return media.filter(
+    (image) =>
+      image &&
+      typeof image === "object" &&
+      image.image_path &&
+      !image.image_src &&
+      !image.image_preview_src,
+  );
+}
+
+function publishedMediaUrl(branch, imagePath) {
+  const safePath = String(imagePath)
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `${publishedWebsiteRepository}/${encodeURIComponent(branch)}/${safePath}`;
+}
+
+async function publishedBranchContainsMedia(branch, imagePath) {
+  try {
+    const response = await fetch(publishedMediaUrl(branch, imagePath), {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function findPublishedWebsiteBranch(email, imagePath, companyName) {
+  const cacheKey = `gudispace-published-branch:${email.toLowerCase()}`;
+  const cachedBranch = window.localStorage.getItem(cacheKey);
+  if (
+    cachedBranch &&
+    (await publishedBranchContainsMedia(cachedBranch, imagePath))
+  ) {
+    return cachedBranch;
+  }
+
+  const likelyBranch = String(companyName || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "");
+  if (
+    likelyBranch &&
+    (await publishedBranchContainsMedia(likelyBranch, imagePath))
+  ) {
+    window.localStorage.setItem(cacheKey, likelyBranch);
+    return likelyBranch;
+  }
+
+  try {
+    const response = await fetch(publishedWebsiteBranchesEndpoint, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) return "";
+    const branches = await response.json();
+    const branchNames = branches
+      .map((branch) => branch?.name)
+      .filter((branchName) => branchName && branchName !== likelyBranch);
+    const branchMatches = await Promise.all(
+      branchNames.map((branchName) =>
+        publishedBranchContainsMedia(branchName, imagePath),
+      ),
+    );
+    const matchingBranch = branchNames[branchMatches.indexOf(true)] || "";
+    if (matchingBranch) {
+      window.localStorage.setItem(cacheKey, matchingBranch);
+      return matchingBranch;
+    }
+  } catch (error) {
+    console.warn("Published image lookup failed.", error);
+  }
+  return "";
+}
+
+async function resolvePublishedMediaSources(data, email) {
+  const media = collectStoredMedia(data);
+  if (!media.length) return;
+  const branch = await findPublishedWebsiteBranch(
+    email,
+    media[0].image_path,
+    data.company?.companyName,
+  );
+  if (!branch) return;
+  media.forEach((image) => {
+    image.image_preview_src = publishedMediaUrl(branch, image.image_path);
+  });
 }
 
 function portableImageExtension(image) {
@@ -312,7 +624,7 @@ function portableImagePath(image, folder, fileName) {
   return extension ? `data/${folder}/${fileName}${extension}` : "";
 }
 
-function createPortableData(config) {
+function createPortableData(config, includePreviewSources = false) {
   const companyImageId = portableImageId(config.logo, "company");
   const backgroundImageId = portableImageId(
     config.backgroundImage,
@@ -332,13 +644,14 @@ function createPortableData(config) {
         "company",
         companyImageId,
       ),
-      image_src: portableImageSource(config.logo),
+      image_src: portableImageSource(config.logo, includePreviewSources),
       image_thumbnail: portableImageThumbnail(config.logo),
     },
     template: {
       templateId: config.template,
       primaryColor: config.brandColor,
       secondaryColor: config.secondaryColor,
+      headerTextColor: config.headerTextColor,
       usePageColor: config.usePageColor,
       pageColor: config.pageColor,
       transparentPageColor: config.transparentPageColor,
@@ -350,7 +663,10 @@ function createPortableData(config) {
         "background",
         backgroundImageId,
       ),
-      background_image_src: portableImageSource(config.backgroundImage),
+      background_image_src: portableImageSource(
+        config.backgroundImage,
+        includePreviewSources,
+      ),
       background_image_thumbnail: portableImageThumbnail(
         config.backgroundImage,
       ),
@@ -364,7 +680,7 @@ function createPortableData(config) {
         ...service,
         image_id: imageId,
         image_path: portableImagePath(image, "service", imageId),
-        image_src: portableImageSource(image),
+        image_src: portableImageSource(image, includePreviewSources),
         image_thumbnail: portableImageThumbnail(image),
       };
     }),
@@ -373,7 +689,7 @@ function createPortableData(config) {
       return {
         image_id: imageId,
         image_path: portableImagePath(image, "gallery", imageId),
-        image_src: portableImageSource(image),
+        image_src: portableImageSource(image, includePreviewSources),
         image_thumbnail: portableImageThumbnail(image),
         alt: "",
       };
@@ -407,10 +723,11 @@ function createPortableData(config) {
   };
 }
 
-function createDataDeliveryPayload(config) {
+function createDataDeliveryPayload(config, otp) {
   return {
     branchName: config.companyName,
     data: createPortableData(config),
+    otp,
   };
 }
 
@@ -428,12 +745,12 @@ async function readGenerationApiResponse(response) {
     throw new Error("The server returned an invalid response.");
   }
 
-  if (responseData.success === false) {
+  if (!response.ok || responseData.success === false) {
     console.error("Generation API error:", responseData);
-    throw new Error(
-      typeof responseData.message === "string" && responseData.message.trim()
-        ? responseData.message.trim()
-        : "The request could not be completed.",
+    throw new BackendRequestError(
+      backendErrorMessage(responseData, "The request could not be completed."),
+      response.status,
+      backendErrorCode(responseData),
     );
   }
 
@@ -482,9 +799,8 @@ function showPublishedWebsite(previewUrl, payload) {
   showHomeScreen();
 }
 
-async function publishWebsite() {
-  const config = await collectConfiguration();
-  const payload = createDataDeliveryPayload(config);
+async function publishWebsite(config, otp) {
+  const payload = createDataDeliveryPayload(config, otp);
   const action = websiteOperation === "modify" ? "modify" : "create";
   const response = await fetch(websiteGenerationEndpoint, {
     method: websiteOperation === "modify" ? "PUT" : "POST",
@@ -509,17 +825,39 @@ createWebsiteButton.addEventListener("click", async () => {
   if (!validateEntireForm()) return;
 
   createWebsiteButton.disabled = true;
-  const action = websiteOperation === "modify" ? "Modifying" : "Creating";
-  setDataDeliveryStatus(
-    websiteOperation === "modify"
-      ? "Modifying website..."
-      : "Creating website...",
-  );
+  setDataDeliveryStatus("Sending OTP...");
   try {
-    await publishWebsite();
+    const config = await collectConfiguration();
+    const email =
+      websiteOperation === "modify" ? lockedWebsiteEmail : config.email;
+    await startOtpVerification({
+      email,
+      onCancel: () => {
+        createWebsiteButton.disabled = false;
+        setDataDeliveryStatus("");
+      },
+      onOperationError: (error) => {
+        createWebsiteButton.disabled = false;
+        setDataDeliveryStatus(error.message, "error");
+      },
+      onVerify: async (otp) => {
+        setDataDeliveryStatus(
+          websiteOperation === "modify"
+            ? "Modifying website..."
+            : "Creating website...",
+        );
+        await runWithLoader(
+          websiteOperation === "modify"
+            ? "Modifying website..."
+            : "Creating website...",
+          () => publishWebsite(config, otp),
+        );
+        createWebsiteButton.disabled = false;
+      },
+    });
+    setDataDeliveryStatus(`OTP sent to ${email}.`);
   } catch (error) {
     setDataDeliveryStatus(error.message, "error");
-  } finally {
     createWebsiteButton.disabled = false;
   }
 });
@@ -715,7 +1053,10 @@ backgroundImageField.addEventListener("change", async () => {
   const [file] = backgroundImageField.files;
   if (!file) return;
   try {
-    importedBackgroundImage = await readImage(file);
+    importedBackgroundImage = await runWithLoader(
+      "Loading image...",
+      () => readImage(file),
+    );
     backgroundImageField.value = "";
     renderBackgroundImagePreview();
   } catch (error) {
@@ -774,8 +1115,7 @@ if (isOpenedDirectly) {
   previewButton.disabled = true;
 } else if (!isLocalBuilder) {
   serverStatus.hidden = true;
-  previewButton.disabled = true;
-  previewButton.title = "Preview is available when the builder runs locally.";
+  previewButton.disabled = false;
 }
 
 function setStatus(message, type = "") {
@@ -811,7 +1151,7 @@ async function checkServer() {
     serverConnected ? "connected" : "disconnected"
   }`;
   serverStatus.hidden = serverConnected;
-  previewButton.disabled = !serverConnected;
+  previewButton.disabled = isOpenedDirectly;
   return serverConnected;
 }
 
@@ -837,43 +1177,178 @@ function createImageThumbnail(dataUrl) {
   });
 }
 
-function readImage(file) {
+function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
-    const supportedExtension = supportedImagePattern.test(file.name);
-    if (!supportedImageTypes.has(file.type) && !supportedExtension) {
-      reject(
-        new Error(
-          `${file.name} is not supported. Choose a PNG, JPG, WebP, or GIF image.`,
-        ),
-      );
-      return;
-    }
-
-    if (file.size > maxImageSize) {
-      reject(
-        new Error(
-          `${file.name} is larger than ${maxImageSizeMb} MB.`,
-        ),
-      );
-      return;
-    }
-
     const reader = new FileReader();
-    reader.addEventListener("load", async () => {
-      const dataUrl = reader.result;
-      resolve({
-        id: createMediaId("media"),
-        name: file.name,
-        type: file.type,
-        dataUrl,
-        thumbnail: await createImageThumbnail(dataUrl),
-      });
-    });
+    reader.addEventListener("load", () => resolve(reader.result));
     reader.addEventListener("error", () => {
       reject(new Error(`Could not read ${file.name}.`));
     });
     reader.readAsDataURL(file);
   });
+}
+
+function loadImage(dataUrl, fileName) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", () => {
+      reject(new Error(`Could not process ${fileName}.`));
+    });
+    image.src = dataUrl;
+  });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error("The image could not be compressed."));
+      },
+      "image/webp",
+      quality,
+    );
+  });
+}
+
+async function compressImage(
+  file,
+  originalDataUrl,
+  image,
+  forceCompression = false,
+) {
+  const largestDimension = Math.max(image.naturalWidth, image.naturalHeight);
+  if (
+    !forceCompression &&
+    supportedImageTypes.has(file.type) &&
+    file.size <= maxImageSize &&
+    largestDimension <= maxImageDimension
+  ) {
+    return {
+      name: file.name,
+      type: file.type,
+      dataUrl: originalDataUrl,
+    };
+  }
+
+  let scale = Math.min(1, maxImageDimension / largestDimension);
+  let width = Math.max(1, Math.round(image.naturalWidth * scale));
+  let height = Math.max(1, Math.round(image.naturalHeight * scale));
+  let quality = 0.86;
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error(`Could not process ${file.name}.`);
+    context.drawImage(image, 0, 0, width, height);
+    const blob = await canvasToBlob(canvas, quality);
+
+    if (blob.size <= maxImageSize) {
+      return {
+        name: file.name.replace(/\.[^.]+$/, "") + ".webp",
+        type: "image/webp",
+        dataUrl: await readFileAsDataUrl(blob),
+      };
+    }
+
+    if (quality > 0.58) {
+      quality -= 0.07;
+    } else {
+      width = Math.max(1, Math.round(width * 0.85));
+      height = Math.max(1, Math.round(height * 0.85));
+      quality = 0.8;
+    }
+  }
+
+  throw new Error(
+    `${file.name} could not be compressed below ${maxImageSizeMb} MB.`,
+  );
+}
+
+function isHeicImage(file) {
+  return (
+    heicImageTypes.has(file.type.toLowerCase()) ||
+    heicImagePattern.test(file.name)
+  );
+}
+
+async function convertHeicImage(file) {
+  if (typeof window.heic2any !== "function") {
+    throw new Error(
+      "HEIC conversion is unavailable. Refresh the builder and try again.",
+    );
+  }
+
+  let converted;
+  try {
+    converted = await window.heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.92,
+    });
+  } catch (error) {
+    console.error("HEIC conversion failed.", error);
+    throw new Error(
+      `${file.name} could not be converted. Try exporting it as JPG and upload it again.`,
+    );
+  }
+
+  const blob = Array.isArray(converted) ? converted[0] : converted;
+  if (!(blob instanceof Blob)) {
+    throw new Error(`${file.name} did not produce a usable converted image.`);
+  }
+
+  const dataUrl = await readFileAsDataUrl(blob);
+  const image = await loadImage(dataUrl, file.name);
+  return compressImage(
+    {
+      name: file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+      type: "image/jpeg",
+      size: blob.size,
+    },
+    dataUrl,
+    image,
+    true,
+  );
+}
+
+async function readImage(file) {
+  const supportedExtension = supportedImagePattern.test(file.name);
+  const heicImage = isHeicImage(file);
+  if (
+    !supportedImageTypes.has(file.type) &&
+    !heicImage &&
+    !supportedExtension
+  ) {
+    throw new Error(
+      `${file.name} is not supported. Choose a PNG, JPG, WebP, GIF, HEIC, or HEIF image.`,
+    );
+  }
+
+  if (file.size > maxSourceImageSize) {
+    throw new Error(
+      `${file.name} is larger than the ${maxSourceImageSizeMb} MB input safety limit.`,
+    );
+  }
+
+  const compressed = heicImage
+    ? await convertHeicImage(file)
+    : await (async () => {
+        const originalDataUrl = await readFileAsDataUrl(file);
+        const image = await loadImage(originalDataUrl, file.name);
+        return compressImage(file, originalDataUrl, image);
+      })();
+  return {
+    id: createMediaId("media"),
+    ...compressed,
+    thumbnail: await createImageThumbnail(compressed.dataUrl),
+  };
 }
 
 function clearLogo() {
@@ -901,7 +1376,7 @@ logoInput.addEventListener("change", async () => {
   }
 
   try {
-    const logo = await readImage(file);
+    const logo = await runWithLoader("Loading image...", () => readImage(file));
     importedLogo = logo;
     logoInput.value = "";
     renderLogoPreview();
@@ -971,7 +1446,10 @@ galleryInput.addEventListener("change", async () => {
   }
 
   try {
-    const images = await Promise.all(files.map(readImage));
+    const images = await runWithLoader(
+      "Loading image...",
+      () => Promise.all(files.map(readImage)),
+    );
     importedGallery.push(...images);
     galleryInput.value = "";
     renderGalleryPreviews();
@@ -1063,7 +1541,7 @@ function createServiceEditor(service = {}) {
         <div class="image-upload-row">
           <label class="image-file-button">
             Choose file
-            <input class="service-image-input image-file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.gif" />
+            <input class="service-image-input image-file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.heic,.heif" />
           </label>
           <span class="service-image-preview image-preview" hidden>
             <img alt="Selected offering image preview" />
@@ -1110,7 +1588,10 @@ function createServiceEditor(service = {}) {
     const [file] = event.target.files;
     if (!file) return;
     try {
-      editor._importedImage = await readImage(file);
+      editor._importedImage = await runWithLoader(
+        "Loading image...",
+        () => readImage(file),
+      );
       serviceImageInput.value = "";
       renderServiceImage();
     } catch (error) {
@@ -1450,6 +1931,7 @@ function loadWebsiteData(payload, accountEmail = "") {
       image_id: company.image_id,
       image_src: company.image_src,
       image_path: company.image_path,
+      image_preview_src: company.image_preview_src,
       image_thumbnail: company.image_thumbnail || "",
     },
     "company",
@@ -1459,6 +1941,7 @@ function loadWebsiteData(payload, accountEmail = "") {
       image_id: template.background_image_id,
       image_src: template.background_image_src,
       image_path: template.background_image_path,
+      image_preview_src: template.image_preview_src,
       image_thumbnail: template.background_image_thumbnail || "",
     },
     "background",
@@ -1477,6 +1960,7 @@ function loadWebsiteData(payload, accountEmail = "") {
             image_id: service.image_id,
             image_src: service.image_src,
             image_path: service.image_path,
+            image_preview_src: service.image_preview_src,
             image_thumbnail: service.image_thumbnail || "",
           },
           "service",
@@ -1537,11 +2021,13 @@ loadWebsiteButton.addEventListener("click", async () => {
   loadWebsiteButton.textContent = "Loading website...";
 
   try {
-    const response = await fetch(requestUrl, {
-      method: "GET",
-      headers: { Accept: "application/json" },
+    const responseData = await runWithLoader("Loading website...", async () => {
+      const response = await fetch(requestUrl, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+      return readGenerationApiResponse(response);
     });
-    const responseData = await readGenerationApiResponse(response);
     if (
       !responseData.data ||
       typeof responseData.data !== "object" ||
@@ -1550,6 +2036,7 @@ loadWebsiteButton.addEventListener("click", async () => {
       console.error("Generation API returned invalid website data.", responseData);
       throw new Error("The server returned an invalid response.");
     }
+    await resolvePublishedMediaSources(responseData.data, email);
     loadWebsiteData(responseData.data, email);
   } catch (error) {
     manageStatus.textContent = error.message;
@@ -1581,28 +2068,48 @@ deleteWebsiteButton.addEventListener("click", async () => {
   const requestUrl = new URL(websiteGenerationEndpoint);
   requestUrl.searchParams.set("email", email);
   deleteWebsiteButton.disabled = true;
-  deleteWebsiteButton.textContent = "Deleting website...";
+  deleteWebsiteButton.textContent = "Sending OTP...";
   try {
-    const response = await fetch(requestUrl, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
+    await startOtpVerification({
+      email,
+      onCancel: () => {
+        deleteWebsiteButton.disabled = false;
+        deleteWebsiteButton.textContent = "Delete website";
+      },
+      onOperationError: (error) => {
+        deleteStatus.textContent = error.message;
+        deleteStatus.className = "home-panel-status error";
+        deleteWebsiteButton.disabled = false;
+        deleteWebsiteButton.textContent = "Delete website";
+      },
+      onVerify: async (otp) => {
+        requestUrl.searchParams.set("otp", otp);
+        await runWithLoader("Deleting website...", async () => {
+          const response = await fetch(requestUrl, {
+            method: "DELETE",
+            headers: { Accept: "application/json" },
+          });
+          await readGenerationApiResponse(response);
+        });
+        deleteStatus.textContent = "Website deleted successfully.";
+        deleteStatus.className = "home-panel-status success";
+        deleteEmail.value = "";
+        if (lockedWebsiteEmail.toLowerCase() === email.toLowerCase()) {
+          resetBuilderForm();
+          startCreateWebsiteButton.disabled = false;
+          startCreateWebsiteButton.innerHTML =
+            'Create website <span aria-hidden="true">→</span>';
+          createWebsiteCard.classList.remove("website-created");
+          createdWebsiteResult.hidden = true;
+        }
+        deleteWebsiteButton.disabled = false;
+        deleteWebsiteButton.textContent = "Delete website";
+      },
     });
-    await readGenerationApiResponse(response);
-    deleteStatus.textContent = "Website deleted successfully.";
-    deleteStatus.className = "home-panel-status success";
-    deleteEmail.value = "";
-    if (lockedWebsiteEmail.toLowerCase() === email.toLowerCase()) {
-      resetBuilderForm();
-      startCreateWebsiteButton.disabled = false;
-      startCreateWebsiteButton.innerHTML =
-        'Create website <span aria-hidden="true">→</span>';
-      createWebsiteCard.classList.remove("website-created");
-      createdWebsiteResult.hidden = true;
-    }
+    deleteWebsiteButton.textContent = "Enter OTP";
   } catch (error) {
     deleteStatus.textContent = error.message;
     deleteStatus.className = "home-panel-status error";
-  } finally {
     deleteWebsiteButton.disabled = false;
     deleteWebsiteButton.textContent = "Delete website";
   }
@@ -1622,18 +2129,23 @@ builderContactForm.addEventListener("submit", async (event) => {
   }
 
   contactUsStatus.textContent = "Sending message...";
+  contactUsButton.disabled = true;
   try {
-    const response = await fetch(builderContactEndpoint, {
-      method: "POST",
-      body: new FormData(builderContactForm),
+    await runWithLoader("Sending message...", async () => {
+      const response = await fetch(builderContactEndpoint, {
+        method: "POST",
+        body: new FormData(builderContactForm),
+      });
+      if (!response.ok) throw new Error(`Form returned ${response.status}.`);
     });
-    if (!response.ok) throw new Error(`Form returned ${response.status}.`);
     builderContactForm.reset();
     contactUsStatus.textContent = "Message sent successfully.";
     contactUsStatus.className = "home-panel-status success";
   } catch (error) {
     contactUsStatus.textContent = `Could not send message: ${error.message}`;
     contactUsStatus.className = "home-panel-status error";
+  } finally {
+    contactUsButton.disabled = false;
   }
 });
 
@@ -1668,6 +2180,7 @@ async function collectConfiguration() {
     description: fieldValue("description"),
     brandColor: fieldValue("brandColor"),
     secondaryColor: fieldValue("secondaryColor"),
+    headerTextColor: "light",
     usePageColor: usePageColorField.checked,
     pageColor: pageColorField.value,
     transparentPageColor: transparentPageColorField.checked,
@@ -1712,51 +2225,57 @@ async function collectConfiguration() {
 }
 
 async function renderPreview() {
-  if (!isLocalBuilder) {
-    setStatus(
-      "Preview is available when the Website Builder runs locally.",
-      "error",
-    );
-    return;
-  }
-
-  if (!(await checkServer())) {
-    setStatus(
-      "Cannot preview because the Website Builder server is disconnected.",
-      "error",
-    );
-    return;
-  }
-
   previewButton.disabled = true;
   setStatus("Building preview...");
   try {
-    const payload = await collectConfiguration();
-    const response = await fetch(`/api/preview?time=${Date.now()}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(payload),
+    const configuration = await collectConfiguration();
+    const previewData = createPortableData(configuration, true);
+    await new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener("message", handlePreviewMessage);
+        reject(new Error("The website preview took too long to load."));
+      }, 15000);
+      const handlePreviewMessage = (event) => {
+        if (
+          event.origin !== window.location.origin ||
+          event.source !== previewFrame.contentWindow ||
+          !["website-preview-ready", "website-preview-error"].includes(
+            event.data?.type,
+          )
+        ) {
+          return;
+        }
+        window.clearTimeout(timeout);
+        window.removeEventListener("message", handlePreviewMessage);
+        if (event.data.type === "website-preview-error") {
+          reject(new Error(event.data.message || "The preview could not render."));
+          return;
+        }
+        resolve();
+      };
+      window.addEventListener("message", handlePreviewMessage);
+      previewFrame.addEventListener(
+        "load",
+        () => {
+          previewFrame.contentWindow.postMessage(
+            { type: "website-preview-data", data: previewData },
+            window.location.origin,
+          );
+        },
+        { once: true },
+      );
+      previewFrame.src = `preview/index.html?time=${Date.now()}`;
     });
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || "The website preview could not be created.");
-    }
 
-    previewFrame.srcdoc = result.html;
     previewFrameShell.hidden = false;
     previewPlaceholder.hidden = true;
     finalGeneration.hidden = false;
     setStatus("Website preview updated.", "success");
     previewSection.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    const message =
-      error instanceof TypeError
-        ? "The Website Builder server stopped responding. Restart start.command."
-        : error.message;
-    setStatus(message, "error");
+    setStatus(error.message, "error");
   } finally {
-    previewButton.disabled = !serverConnected;
+    previewButton.disabled = isOpenedDirectly;
   }
 }
 

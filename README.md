@@ -17,11 +17,22 @@ The builder opens at <http://127.0.0.1:8766>. Complete the form and select
 Optional pages are included automatically when their corresponding content is
 provided.
 
+Preview is rendered entirely in the browser using the reusable static assets
+under `preview/`. It does not call `/api/preview`, so it works from GitHub Pages
+and other static hosts as well as from the local builder. The iframe receives
+the current configuration through same-origin browser messaging.
+
 Builder-facing text and colors are kept in the small `data/data.json` file.
 Change values under `headings`, `taglines`, or `about` to update the matching
 builder content. The `colors` section contains only `primary`, `button`, and
 `completion`; the completion color controls the Create/Modify success area.
 APIs, validation rules, defaults, and image limits remain in code.
+
+The shared GudiSpace pages also read this file. `brand.logoPath` points to the
+logo under `data/`, `howItWorks` contains `{ "heading", "description" }`
+objects, `faq` contains `{ "question", "answer" }` objects, and `examples`
+contains `{ "category", "heading", "description", "url" }` objects. When
+`examples` is empty, the Examples navigation item is hidden.
 
 The builder uses nine named steps. The step names at the top are clickable for
 quick navigation, while forward navigation still validates required earlier
@@ -229,8 +240,11 @@ The generated page displays the review text, reviewer name, date, and star
 rating. A site may start with no published reviews; the submission form remains
 available while approved reviews are collected.
 The `gallery` array in `data/data.json` lists every image displayed from the
-gallery folder. The builder accepts up to eight PNG, JPG, WebP, or GIF gallery
-images, with a maximum of 5 MB per image. HEIC is not supported. A CMS should
+gallery folder. The builder accepts up to eight PNG, JPG, WebP, GIF, HEIC, or
+HEIF gallery images. HEIC and HEIF images are decoded in the browser using the
+locally bundled `heic2any` converter, then converted to WebP. Images over 2 MB
+or 2560 pixels on their longest side are also resized and compressed to WebP.
+Original uploads have a 20 MB safety limit. A CMS should
 update this list whenever it adds or removes an image because static web hosts
 do not provide browser-readable folder listings.
 

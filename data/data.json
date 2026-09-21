@@ -1,8 +1,24 @@
 {
-  "version": 105,
+  "version": 135,
+  "brand": {
+    "name": "GudiSpace",
+    "logoPath": "data/logo.svg"
+  },
+  "navigation": {
+    "home": "Home",
+    "howItWorks": "How it works",
+    "examples": "Examples",
+    "pricing": "Pricing",
+    "faq": "FAQ",
+    "contactUs": "Contact us"
+  },
   "headings": {
-    "header": "Everything your customers need, in one link",
+    "header": "Build your business website.",
     "home": "What would you like to do?",
+    "howItWorks": "How it works",
+    "examples": "Examples",
+    "pricing": "Pricing",
+    "faq": "FAQ",
     "ready": "Your website is ready!",
     "company": "Company details",
     "offerings": "What you offer",
@@ -15,10 +31,7 @@
     "preview": "Preview"
   },
   "taglines": {
-    "headerEyebrow": "Instant site generation",
-    "headerDescription": "Fill it in. Live in seconds.",
-    "headerNote": "No signup required. Preview instantly.",
-    "homeEyebrow": "Your website, your way",
+    "headerDescription": "Fill in your details, preview instantly, and go live today.",
     "homeDescription": "Create something new, update an existing website, or reach out to us.",
     "createCardTitle": "Create website",
     "createCardDescription": "Start fresh and publish your business website in minutes.",
@@ -28,18 +41,100 @@
     "deleteCardDescription": "Delete an existing website using its account email.",
     "createdLabel": "Website created",
     "modifiedLabel": "Website modified",
-    "deploymentPending": "If it doesn't load right away, wait a bit and refresh — deployment is still finishing up.",
+    "deploymentPending": "Deployment may take a few minutes. If the site doesn’t load right away, please wait and refresh.",
     "viewWebsite": "View My Website →"
   },
   "about": {
     "company": "These details create the header and hero section.",
     "follow": "Add any social or podcast links that should appear on the website.",
     "template": "Choose the colors, background, and layout for your website.",
-    "previewImages": "Images in this preview may use compressed thumbnails. Your published website uses the original images."
+    "previewImages": "The preview uses original published images when available. A compressed thumbnail is used only if an original image cannot be loaded."
   },
   "colors": {
     "primary": "#2563eb",
     "button": "#123b72",
     "completion": "#2563eb"
-  }
+  },
+  "howItWorks": [
+    {
+      "heading": "Add your details",
+      "description": "Tell us about your business, offerings, contact details, and links."
+    },
+    {
+      "heading": "Choose your look",
+      "description": "Select a template, colors, and images that suit your brand."
+    },
+    {
+      "heading": "Preview and publish",
+      "description": "Check desktop and mobile previews, then publish when ready."
+    },
+    {
+      "heading": "Change your life",
+      "description": "Check desktop and mobile previews, then publish when ready."
+    }
+  ],
+  "examples": [
+    {
+      "category": "Social platform",
+      "heading": "Facebook",
+      "description": "Visit Facebook to see a large-scale public website experience.",
+      "url": "https://www.facebook.com/"
+    }
+  ],
+  "pricing": [
+    {
+      "heading": "Starter",
+      "price": "$9/month",
+      "description": "A simple option for individuals and new businesses.",
+      "features": [
+        "One responsive website",
+        "Website preview",
+        "Gallery and contact form"
+      ],
+      "buttonLabel": "Choose Starter",
+      "url": "https://example.com/"
+    },
+    {
+      "heading": "Professional",
+      "price": "$19/month",
+      "description": "For growing businesses that need more flexibility.",
+      "features": [
+        "Everything in Starter",
+        "More gallery images",
+        "Offerings and reviews"
+      ],
+      "buttonLabel": "Choose Professional",
+      "url": "https://example.com/"
+    },
+    {
+      "heading": "Business",
+      "price": "$39/month",
+      "description": "For established businesses with expanded website needs.",
+      "features": [
+        "Everything in Professional",
+        "Priority assistance",
+        "Advanced customization"
+      ],
+      "buttonLabel": "Choose Business",
+      "url": "https://example.com/"
+    }
+  ],
+  "faq": [
+    {
+      "question": "Can I preview my website before publishing?",
+      "answer": "Yes. Preview works directly in your browser for desktop and mobile layouts."
+    },
+    {
+      "question": "Can I update my website later?",
+      "answer": "Yes. Use Manage website with your account email to load and modify it."
+    },
+    {
+      "question": "Do I need to install anything?",
+      "answer": "No installation is needed when GudiSpace is hosted online."
+    },
+    {
+      "question": "Do I need to install anything?",
+      "answer": "No installation is needed when GudiSpace is hosted online."
+    }
+  ]
 }
